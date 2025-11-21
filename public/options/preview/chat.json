@@ -1,0 +1,63 @@
+[
+    { "msgs": ["早上中午晚上好","等等"], "msgInputSpeed": 80 },
+    { "msgs": ["我还不知道你是谁呢"], "msgInputSpeed": 80 },
+    { "msgs": ["问你个小问题检验一下吧"], "msgInputSpeed": 80 },
+    { "msgs": ["哼哼。请听题："], "msgInputSpeed": 80 },
+    {
+        "msgs": ["你在2022年2月-3月是怎么称呼我的？"],
+        "msgInputSpeed": 80,
+        "triggerNextAction": {
+            "type": "userInput",
+            "options": {
+                "resolveKeyTexts": ["Rapper哥", "rapper哥"],
+                "rejectKeyTexts": [],
+                "rejectHitTexts": [
+                    "你不会忘记了吧！" ,
+                    "<img src='options/preview/cc生气.gif'/>",
+                    "你当时叫我rapper哥啊...还说我看起来很拽\uD83D\uDE1E"
+                ]
+            }
+        }
+    },
+    { "msgs": ["早上中午晚上好，蛋姐😊"], "msgInputSpeed": 80 },
+    { "msgs": ["如果从高一下开学算起，今天应该是我们认识的1378天了。"], "msgInputSpeed": 80 },
+    { "msgs": ["<img src='options/preview/cc开心.gif'/>"] },
+    { "msgs": ["为了算这个我还特地翻了珠海一中的校历，累死我了..."], "msgInputSpeed": 80 },
+    {
+        "msgs": ["知道今天是什么日子吗？"],
+        "msgInputSpeed": 80,
+        "triggerNextAction": {
+            "type": "userInput",
+            "options": {
+                "resolveKeyTexts": ["我生日", "我的生日", "我的 20 岁生日", "今天是我生日", "今天是我的生日", "是我生日呀", "是我的生日呢", "我今天生日", "我今儿生日", "我的生日今天", "是我生日", "是我的生日", "今天我生日", "今儿我生日"],
+                "rejectKeyTexts": [],
+                "rejectHitTexts": [
+                    "给你提示一下，今天是2025年11月22号喔",
+                    "你系不系在装傻\uD83D\uDE2D",
+                    "<img src='options/preview/cc生气.gif'/>",
+                    "今天是你20岁生日！！"
+                ]
+            }
+        }
+    },
+    { "msgs": ["嘿嘿，生日快乐啦田适丹"], "msgInputSpeed": 100 },
+    { "msgs": ["<img src='options/preview/cc撒花.gif'/>"] },
+    { "msgs": ["又到了祝福环节，好纠结说什么啊..."], "msgInputSpeed": 140 },
+    { "msgs": ["幸福总是难，快乐总是短"], "msgInputSpeed": 180 },
+    { "msgs": ["思来想去，我就祝你成为一个闭上眼就能安睡的人吧！"], "msgInputSpeed": 80 },
+    { "msgs": ["如果每天都能睡个好觉，这一定是世界上最幸福、最开心的事情了！"], "msgInputSpeed": 80 },
+    { "msgs": ["对吧？"], "msgInputSpeed": 80 },
+    {
+        "msgs": ["这里还有一篇给你写的小作文"],
+        "msgInputSpeed": 80
+    },
+    { "msgs": ["如果因为我文笔不好让你尴尬了"], "msgInputSpeed": 80 },
+    { "msgs": ["那就给我受着！","还请见谅..."], "msgInputSpeed": 80 },
+    {
+        "msgs": ["<letter src='options/preview/letter.json'/>"],
+        "triggerNextAction": { "type": "componentClose" }
+    },
+    { "msgs": ["哎！本来不想搞这么伤感的。谁叫你昨天凌晨说那些话\uD83D\uDE2D"], "msgInputSpeed": 80 },
+    { "msgs": ["所以就给我受着吧\uD83D\uDE0A","礼物我准备寄给你，看完记得发地址给我"], "msgInputSpeed": 80 },
+    { "msgs": ["END"], "msgInputSpeed": 80 }
+]
