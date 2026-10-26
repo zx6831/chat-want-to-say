@@ -1,0 +1,161 @@
+# Lessons Learned
+
+## Frontend Visual System
+
+### 参考页的玻璃感来自透光层级而非纯白卡片
+
+Conclusion: `refui` 的有效玻璃材质组合是低占比雾白底、斜向高光、细边缘、18px 模糊、1.15 饱和与轻阴影；提高纯白不透明度会失去背景透视。
+
+Scope: 聊天页顶部控件、消息气泡、输入区以及后续需要复用的玻璃表面。
+
+Evidence: `refui/.../apps/web/src/ui/glass-surface.css` 的共享 token；本次 1280×900 与 390×844 Chrome 截图中背景渐变可穿过所有玻璃表面。
+
+Correct approach: 先建立统一材质参数，再让结构样式只负责尺寸、圆角与布局；用轻微实色差区分我方和对方消息。
+
+Related files/tests: `src/components/chat-dialog/css/_mobile.scss`、`_mobile.msg.scss`；Chrome CDP 截图检查。
+
+## Compatibility and Validation
+
+### 部署仓库不能跟踪 node_modules 和本地参考工程
+
+Conclusion: 本项目初始提交跟踪了 9,563 个 `node_modules` 文件，Windows 安装依赖后会产生大量换行状态噪声并显著拖慢 Git 与云构建；依赖应只由 `package.json` 和 `yarn.lock` 描述。
+
+Scope: GitHub main 分支、Cloudflare Pages 构建和后续依赖更新。
+
+Evidence: 清理前 tracked `node_modules` 约 65.1MB、9,563 个文件；从索引移除后本地依赖仍保留，`npm run build` 在 Node v22.20.0 / Yarn 1.22.22 下通过。
+
+Correct approach: `.gitignore` 排除 `/node_modules/`、`/dist/`、`/public/album-generated/`、`/refui/`；云端从锁文件安装依赖，并在构建时重新生成相册兼容资源。
+
+Related files/tests: `.gitignore`、`package.json`、`yarn.lock`；`git ls-files node_modules`、`npm run build`。
+
+### 纸张比例应按使用场景分层而不是全端强制 A5
+
+Conclusion: A5 的 148:210 比例适合桌面展示，但在 iPhone 16 Pro 竖屏上会留下大量上下空白；手机端应采用屏幕的 402:874 比例，让信纸接近铺满视口，同时保留纸内滚动。
+
+Scope: 信件内容页的响应式尺寸。
+
+Evidence: 402×874 浏览器实测中，信纸为 382×830.52，左右边距 10px、上下边距约 21.7px，比例与目标 402:874 一致且无横向溢出；844×390 横屏仍保持 A5 比例。
+
+Correct approach: 桌面和横屏使用 A5 比例；`max-width: 600px` 且竖屏时切换到 `aspect-ratio: 402 / 874`，宽度同时受视口宽高约束。
+
+Related files/tests: `src/components/chat-dialog/letter/content.vue`；`agent-browser` 402×874 和 844×390 几何验证。
+
+### 原生输入框可以无缝替换 Varlet 输入外壳
+
+Conclusion: 现有 `setUserInputFoucus()` 只依赖 DOM 的 `scrollIntoView()` 和 `focus()`，因此原生 `<input>` 能保留自动聚焦与 v-model 行为，同时更容易实现参考页的玻璃胶囊。
+
+Scope: `ChatDialog` 的用户答题输入区。
+
+Evidence: 隔离浏览器中输入“雨霖铃”后按钮从 disabled 变为 enabled，点击后消息数 5→6、末项为 `msg-me`、输入值清空。
+
+Correct approach: 保留 `ref="userMsgInputRef"`、`v-model` 和表单 submit；不要改动消息链状态机。
+
+Related files/tests: `src/components/chat-dialog/index.vue`；Chrome CDP 交互验证。
+
+### Chrome 命令行截图不能可靠模拟窄手机视口
+
+Conclusion: Windows Chrome `--window-size=390,844` 仍可能受最小窗口宽度影响；移动端布局验收应使用 CDP `Emulation.setDeviceMetricsOverride`。
+
+Scope: 本项目后续移动端 UI 截图与几何验证。
+
+Evidence: 命令行截图曾裁掉 430px 桌面窗体右侧；CDP 模拟后 `innerWidth=390`、`#mobile=[0,0,390,844]` 且完整显示左右顶部圆钮。
+
+Correct approach: 用 CDP 设置 390×844，再读取 `scrollWidth`、关键元素矩形并截图。
+
+Related files/tests: 本次 Chrome CDP 390×844 几何与截图验证。
+
+### 本地图片先压缩再持久化
+
+Conclusion: 用户自定义头像不能直接把原始文件写入 `localStorage`；先用 Canvas 裁切/缩放并导出 JPEG，能限制单张体积并统一展示行为。
+
+Scope: 双方自定义头像。
+
+Evidence: 浏览器自动化上传两张 SVG 测试图后，头像存储结果为 `data:image/jpeg`，刷新后正确恢复。
+
+Correct approach: 头像居中裁成 256×256、质量 0.86，并捕获容量异常给出明确提示；固定目录相册直接交给 Vite 处理，不写入 `localStorage`。
+
+Related files/tests: `src/components/chat-dialog/image-utils.js`、`AvatarSettings.vue`；Chrome CDP 上传与刷新验证。
+
+### 共享元素转场需要防止用户重入
+
+Conclusion: `document.startViewTransition()` 的更新回调会先切换 DOM，再等待顶层快照动画完成；在约 420ms 内再次触发导航可能与当前快照冲突。
+
+Scope: 聊天与相册之间的进入/返回。
+
+Evidence: 自动化脚本在相册节点刚出现时立即返回，命中防重入并保留当前页面；等待转场结束后返回成功。
+
+Correct approach: 使用 `viewTransitioning` 锁直到 `transition.finished`，稳定验收时同时确认 `data-album-transition` 已清除。
+
+Related files/tests: `src/components/chat-dialog/index.vue`、`css/_mobile.scss`；Chrome CDP 稳定转场与返回验证。
+
+### 项目默认头像与浏览器自定义值分层
+
+Conclusion: 默认头像应作为项目静态资源随构建发布，本地存储只承担用户覆盖值；否则新设备看不到指定头像，“恢复默认”也会退回文字占位。
+
+Scope: 双方头像初始化和恢复默认。
+
+Evidence: 全新 Chrome 配置在 `localStorage` 为空时成功加载 `/avatars/author.jpg` 与 `/avatars/me.jpg`；设置面板两图均完成解码，对方消息实际使用蓝色默认头像。
+
+Correct approach: 用 `DEFAULT_AVATARS` 定义发布资源 URL，初始化时采用“自定义值优先、默认值回退”，恢复默认直接写回对应默认 URL。
+
+Related files/tests: `public/avatars/author.jpg`、`public/avatars/me.jpg`、`image-utils.js`、`index.vue`、`AvatarSettings.vue`。
+
+### 输入提示光效应绑定业务状态而不是永久焦点
+
+Conclusion: 本项目的连续彩色输入光环应由 `userInput` 业务状态和空输入共同控制；单纯绑定 `:focus` 会在用户打字期间持续闪烁，也无法区分程序自动聚焦与真正需要提醒的时机。
+
+Scope: 聊天页底部输入胶囊和后续同类交互提示。
+
+Evidence: 真实消息链进入答题阶段后 `.composer.is-awaiting-input` 启用清晰彩色环 `composerRingFlow` 与模糊外辉光 `composerRingGlow`；输入“雨”后 Vue 立即移除该类，两个伪元素动画变为 `none`、不透明度为 `0`。
+
+Correct approach: 用 `status === 'userInput' && !inputMessage.trim()` 挂载提示类；用遮罩后的多色渐变绘制连续细环，复制一层并模糊为外辉光；输入本体清除矩形 outline，低动态偏好使用静态光环。
+
+Related files/tests: `src/components/chat-dialog/index.vue`、`css/_mobile.scss`；`agent-browser` 计算样式和真实答题阶段交互验证。
+
+### 删除界面引导文案时同步清理结构与关联样式
+
+Conclusion: 删除可见引导文案不能只隐藏文本；应同时移除模板节点、普通样式和低动态模式中的残留选择器，避免死样式继续误导后续维护。
+
+Scope: 聊天页顶部相册胶囊及其他带辅助小字、图标动效的控件。
+
+Evidence: 删除 `.title-note` 节点后，源码精确搜索不再包含旧引导文案或对应选择器；`agent-browser` 验证胶囊可见文本只有“王泽贤”，相册标题区域的 `small` 节点数量为 0。
+
+Correct approach: 从模板删除不需要的可见节点，再搜索类名及文案并清除普通、hover 和 `prefers-reduced-motion` 样式；最后用浏览器读取实际 `textContent` 和节点数量。
+
+Related files/tests: `src/components/chat-dialog/index.vue`、`AlbumSpace.vue`、`css/_mobile.scss`；`agent-browser get text`、`get count`。
+
+### HEIC 相册需要构建前标准化而不是直接交给浏览器
+
+Conclusion: 固定目录相册包含 HEIC/HEIF 时，不能只依靠 Vite 静态 glob 和浏览器解码；需要在开发或构建前提取元数据并转换为浏览器可显示的 JPEG。
+
+Scope: `src/assets/album/` 固定相册目录。
+
+Evidence: 当前 67 个真实 HEIC 均成功转为 JPEG；浏览器完成解码并预览 `IMG_7525.heic`（3085×2314）。
+
+Correct approach: `predev`/`prebuild` 执行 Node 预处理器，生成带时间字段的 manifest 和兼容图片；页面只消费生成清单。
+
+Related files/tests: `scripts/prepare-album.cjs`、`package.json`、`AlbumSpace.vue`；`yarn album:prepare`、`npm run build`、浏览器图片解码验证。
+
+### 图片真实格式应由文件签名判定
+
+Conclusion: 文件扩展名不可靠；相册中存在名为 `.HEIC`、内容实际为 JPEG/JFIF 的文件，仅按后缀转换会失败。
+
+Scope: 相册图片格式适配。
+
+Evidence: `IMG_20251227_155424.HEIC` 的文件签名为 JPEG，签名识别后按 JPEG 直接复制并正常展示。
+
+Correct approach: 先读取文件头识别 JPEG/PNG/GIF/WebP/AVIF/HEIC，再决定直接复制或 HEIC 转换；扩展名只作为未知格式回退。
+
+Related files/tests: `scripts/prepare-album.cjs::detectImageFormat`；相册生成统计与浏览器无破图检查。
+
+### 相册时间排序必须在生成端和展示端使用同一规则
+
+Conclusion: 相册应优先使用 EXIF `DateTimeOriginal`，其次 `CreateDate`，无元数据时使用文件创建时间；时间从早到晚，完全相同时以修改时间和文件名稳定排序。
+
+Scope: 相册清单生成和前端渲染。
+
+Evidence: 135 项 manifest 的 `takenAt` 单调升序检查通过；前端首项与 manifest 最早照片一致。
+
+Correct approach: 生成端写入 ISO 时间和 `dateSource`，前端按相同字段防御性排序，不使用文件名推断拍摄时间。
+
+Related files/tests: `scripts/prepare-album.cjs::comparePhotos`、`AlbumSpace.vue::loadAlbum`；清单单调性脚本、`agent-browser` DOM 顺序检查。

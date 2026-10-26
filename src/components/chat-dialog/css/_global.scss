@@ -25,24 +25,14 @@
 
 
 @keyframes msgBounceIn {
-    from, to {
-        animation-timing-function: cubic-bezier(0.215, 0.610, 0.355, 1);
-    }
-
     from {
-        transform: scale(0);
-    }
-
-    40% {
-        transform: scale(1.03);
-    }
-
-    75% {
-        transform: scale(0.98);
+        opacity: 0;
+        transform: translateY(7px) scale(.98);
     }
 
     to {
-        transform: scale(1);
+        opacity: 1;
+        transform: translateY(0) scale(1);
     }
 }
 
@@ -78,13 +68,49 @@ html, body {
 
 body {
     position: relative;
+    overflow: hidden;
 
-    font-family: Lato;
+    font-family: "Avenir Next", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
     font-size: $font-size-basic;
+    color: $clr-text;
 
-    background-color: lighten($clr-primary, 50%);
-    background-image: radial-gradient(ellipse farthest-corner at 50% 0,
-        #DBF5F1 0%, #9BE4D8 100%);
+    background-color: #eef0fb;
+    background-image:
+        radial-gradient(circle at 18% 18%, rgba(243, 166, 195, .56) 0, rgba(243, 166, 195, 0) 34%),
+        radial-gradient(circle at 83% 12%, rgba(154, 191, 246, .58) 0, rgba(154, 191, 246, 0) 36%),
+        radial-gradient(circle at 65% 88%, rgba(175, 155, 239, .42) 0, rgba(175, 155, 239, 0) 42%),
+        linear-gradient(155deg, #f8f9ff 0%, #ebeefa 50%, #f7edf5 100%);
+    background-attachment: fixed;
+}
+
+body::before,
+body::after {
+    content: "";
+    position: fixed;
+    pointer-events: none;
+    border-radius: 50%;
+    filter: blur(18px);
+    opacity: .7;
+}
+
+body::before {
+    width: 36vw;
+    height: 36vw;
+    min-width: 260px;
+    min-height: 260px;
+    left: -10vw;
+    bottom: -16vw;
+    background: rgba(255, 255, 255, .7);
+}
+
+body::after {
+    width: 28vw;
+    height: 28vw;
+    min-width: 220px;
+    min-height: 220px;
+    right: -8vw;
+    top: 18vh;
+    background: rgba(255, 218, 235, .42);
 }
 
 ul {
@@ -100,7 +126,27 @@ img {
     max-width: 100%;
 }
 
+button,
+input {
+    font: inherit;
+}
+
+button:focus-visible,
+input:focus-visible {
+    outline: 2px solid rgba(111, 86, 211, .72);
+    outline-offset: 3px;
+}
+
 
 .primary-bg {
-    background: linear-gradient(20deg, #3FD1E1 0%, #44D7CD 100%);
+    background: linear-gradient(145deg, rgba(141, 121, 232, .92), rgba(114, 151, 229, .9));
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+    }
 }

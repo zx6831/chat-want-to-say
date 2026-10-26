@@ -1,27 +1,27 @@
-$clr-primary:          #22c3aa;
+$clr-primary:          #8d79e8;
 $clr-primary-light:    lighten($clr-primary, 10%);
 $clr-primary-lighter:  lighten($clr-primary, 40%);
 
-$clr-gray:             #666;
-$clr-light:            #bbb;
-$clr-lighter:          #ddd;
-$clr-lightest:         #f3f3f3;
+$clr-gray:             #25314b;
+$clr-light:            #a8aec0;
+$clr-lighter:          #dfe2ee;
+$clr-lightest:         #f8f9ff;
 
 $clr-text:             $clr-gray;
-$clr-text-light:       #888;
-$clr-text-unimportant: #888;
+$clr-text-light:       #69738b;
+$clr-text-unimportant: #7f879c;
 
 $clr-border:           $clr-lighter;
 $clr-border-light:     $clr-lightest;
 
 $clr-mask:             rgba(0, 0, 0, 0.5);
 
-$mobile-width: 360px;
-$mobile-head-height: 45px;
-$mobile-foot-height: 55px;
+$mobile-width: 430px;
+$mobile-head-height: 82px;
+$mobile-foot-height: 82px;
 
-$msg-radius: 20px;
-$msg-animation-duration: .4s;
+$msg-radius: 19px;
+$msg-animation-duration: .3s;
 
 $prompt-animation-duration: 0.3s;
 

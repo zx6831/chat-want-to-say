@@ -1,10 +1,32 @@
 <template>
   <div id="mobile">
-    <div id="mobile-head">
-      <div id="mobile-head-title">{{ title }}</div>
-    </div>
+    <div class="ambient-glow ambient-glow--violet" aria-hidden="true"></div>
+    <div class="ambient-glow ambient-glow--rose" aria-hidden="true"></div>
+    <div class="chat-view-shell" v-show="activeView === 'chat'" :aria-hidden="activeView !== 'chat'">
+    <header id="mobile-head">
+      <div class="header-orb" aria-hidden="true">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 3.5c.35 4.95 3.55 8.15 8.5 8.5-4.95.35-8.15 3.55-8.5 8.5-.35-4.95-3.55-8.15-8.5-8.5 4.95-.35 8.15-3.55 8.5-8.5Z" />
+        </svg>
+      </div>
+      <button id="mobile-head-title" type="button" aria-label="打开我们的相册" @click="openAlbum">
+        <span class="title-name">{{ title }}</span>
+      </button>
+      <button class="header-orb header-orb--profile" type="button" aria-label="设置双方头像" :aria-expanded="avatarSettingsOpen" @click="avatarSettingsOpen = true">
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="8.3" r="3.2" />
+          <path d="M5.8 19c.7-3 2.8-4.7 6.2-4.7s5.5 1.7 6.2 4.7M18.6 4.8v3.4M16.9 6.5h3.4" />
+        </svg>
+      </button>
+    </header>
     <div id="mobile-body">
-      <div id="mobile-body-bg"></div>
+      <div id="mobile-body-bg" aria-hidden="true">
+        <span class="wish-thread wish-thread--one"></span>
+        <span class="wish-thread wish-thread--two"></span>
+        <span class="floating-speck floating-speck--one"></span>
+        <span class="floating-speck floating-speck--two"></span>
+        <span class="floating-speck floating-speck--three"></span>
+      </div>
       <div id="mobile-body-content">
         <div id="mock-msg-row"
              class="msg-row">
@@ -16,56 +38,75 @@
              v-for="(msg, index) in messages"
              :key="index"
              :class="msg.author === 'author' ? 'msg-author' : 'msg-me'">
-          <div class="msg"
-               :style="msg.width && msg.height && {width: msg.width - 26 + 'px', height: msg.height - 18 + 'px'}"
-               :class="{ 
-                 'msg-bounce-in-left':  msg.author === 'author',
-                 'msg-bounce-in-right':  msg.author === 'me',
-                 'animate_breathe': index === (messages.length - 1) && status === 'componentClose' 
-                }"
-               @click="$emit('msg-click', msg)">
-            <span v-if="msg.type === 'text'"
-                  v-html="msg.content"></span>
-            <component v-else
-                       :is="msg.type"
-                       v-bind="msg.props"
-                       @open="handleComponentOpen(msg)"
-                       @close="handleComponentClose"></component>
+          <div class="msg-avatar" aria-hidden="true">
+            <img v-if="avatars[msg.author]" :src="avatars[msg.author]" alt="" />
+            <span v-else>{{ msg.author === 'author' ? 'W' : 'ME' }}</span>
+          </div>
+          <div class="msg-stack">
+            <div class="msg"
+                 :style="msg.width && msg.height && {width: msg.width - 26 + 'px', height: msg.height - 18 + 'px'}"
+                 :class="{
+                   'msg-bounce-in-left':  msg.author === 'author',
+                   'msg-bounce-in-right':  msg.author === 'me',
+                   'animate_breathe': index === (messages.length - 1) && status === 'componentClose'
+                  }"
+                 @click="$emit('msg-click', msg)">
+              <span v-if="msg.type === 'text'"
+                    v-html="msg.content"></span>
+              <component v-else
+                         :is="msg.type"
+                         v-bind="msg.props"
+                         @open="handleComponentOpen(msg)"
+                         @close="handleComponentClose"></component>
+            </div>
           </div>
         </div>
       </div>
     </div>
-    <div id="mobile-foot">
-      <var-row :gutter="10"
-               justify="center"
-               align="center"
-               style="height: 100%;">
-        <var-col :span="20">
-          <div id="input-hint"
-               class="say-something">
-            <div style="background: white;width: 100%;height: 32px;line-height: 32px;">
-              <span v-show="status === 'systemInput'"
-                    style="color: black;"
-                    class="system-input-element"></span>
-              <var-input ref="userMsgInputRef"
-                         v-show="status === 'userInput'"
-                         class="animate_breathe"
-                         :hint="false"
-                         :line="false"
-                         v-model="inputMessage" />
-            </div>
-          </div>
-        </var-col>
-        <var-col :span="4"
-                 style="padding: 0;">
-          <var-button ref="sendMsgBtnRef"
-                      type="success"
-                      size="small"
-                      :disabled="sendBtnDisabled"
-                      @click="sendUserMsg">发送</var-button>
-        </var-col>
-      </var-row>
+    <footer id="mobile-foot">
+      <form
+        class="composer"
+        :class="{ 'is-awaiting-input': status === 'userInput' && !inputMessage.trim() }"
+        @submit.prevent="sendUserMsg"
+      >
+        <span class="composer-spark" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 3.5c.35 4.95 3.55 8.15 8.5 8.5-4.95.35-8.15 3.55-8.5 8.5-.35-4.95-3.55-8.15-8.5-8.5 4.95-.35 8.15-3.55 8.5-8.5Z" /></svg>
+        </span>
+        <label id="input-hint" class="composer-field">
+          <span v-show="status === 'systemInput'"
+                class="system-input-element"></span>
+          <input ref="userMsgInputRef"
+                 v-show="status === 'userInput'"
+                 v-model="inputMessage"
+                 class="user-message-input"
+                 type="text"
+                 autocomplete="off"
+                 enterkeyhint="send"
+                 aria-label="回复消息"
+                 placeholder="写一句话…" />
+          <span v-show="status !== 'systemInput' && status !== 'userInput'"
+                class="composer-placeholder">等我把话说完…</span>
+        </label>
+        <button ref="sendMsgBtnRef"
+                class="send-button"
+                :class="{ 'is-ready': !sendBtnDisabled }"
+                type="submit"
+                :disabled="sendBtnDisabled"
+                aria-label="发送消息">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 12h13M13 7l5 5-5 5" />
+          </svg>
+        </button>
+      </form>
+    </footer>
     </div>
+    <AlbumSpace v-if="activeView === 'album'" @close="closeAlbum" />
+    <AvatarSettings
+      v-if="avatarSettingsOpen"
+      :avatars="avatars"
+      @change="avatars = $event"
+      @close="avatarSettingsOpen = false"
+    />
   </div>
   <MessageDetail v-if="currentOpenComponent"
                  :type="currentOpenComponent.type"
@@ -78,6 +119,9 @@
 import letter from './letter/cover.vue'
 import vlog from './vlog/cover.vue'
 import MessageDetail from './MessageDetail.vue'
+import AlbumSpace from './AlbumSpace.vue'
+import AvatarSettings from './AvatarSettings.vue'
+import { AVATAR_STORAGE_KEY, DEFAULT_AVATARS, readLocalJson } from './image-utils'
 import Typed from 'typed.js'
 import './css/main.scss'
 const AUTHOR = {
@@ -93,7 +137,9 @@ export default {
   components: {
     letter,
     vlog,
-    MessageDetail
+    MessageDetail,
+    AlbumSpace,
+    AvatarSettings
   },
   props: {
     title: String,
@@ -111,6 +157,8 @@ export default {
     }
   },
   data () {
+    const storedAvatars = readLocalJson(AVATAR_STORAGE_KEY, {})
+    const savedAvatars = storedAvatars && typeof storedAvatars === 'object' ? storedAvatars : {}
     return {
       // 已经展示的消息
       messages: [],
@@ -124,6 +172,13 @@ export default {
       status: 'systemInput',
       // 当前打开的组件
       currentOpenComponent: null,
+      activeView: 'chat',
+      avatarSettingsOpen: false,
+      avatars: {
+        author: savedAvatars.author || DEFAULT_AVATARS.author,
+        me: savedAvatars.me || DEFAULT_AVATARS.me
+      },
+      viewTransitioning: false,
       isTyping: false,
       latestMsgContent: null
     }
@@ -138,7 +193,56 @@ export default {
       }
     }
   },
+  mounted () {
+    document.addEventListener('keydown', this.handleGlobalKeydown)
+  },
+  beforeUnmount () {
+    document.removeEventListener('keydown', this.handleGlobalKeydown)
+  },
   methods: {
+    openAlbum () {
+      this.avatarSettingsOpen = false
+      this.changeView('album', 'push')
+    },
+
+    closeAlbum () {
+      this.changeView('chat', 'pop')
+    },
+
+    async changeView (view, direction) {
+      if (this.viewTransitioning || this.activeView === view) return
+      this.viewTransitioning = true
+      const root = document.documentElement
+      const update = () => {
+        this.activeView = view
+        return this.$nextTick()
+      }
+
+      try {
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        if (document.startViewTransition && !reduceMotion) {
+          root.dataset.albumTransition = direction
+          const transition = document.startViewTransition(update)
+          await transition.finished
+        } else {
+          await update()
+        }
+      } finally {
+        delete root.dataset.albumTransition
+        this.viewTransitioning = false
+        if (view === 'chat') this.$nextTick(updateScroll)
+      }
+    },
+
+    handleGlobalKeydown (event) {
+      if (event.key !== 'Escape') return
+      if (this.avatarSettingsOpen) {
+        this.avatarSettingsOpen = false
+      } else if (this.activeView === 'album') {
+        this.closeAlbum()
+      }
+    },
+
     buildMsgChain (messages) {
       messages.forEach(({ msgs, msgInputSpeed, author, triggerNextAction }) => {
         this.msgChain = this.msgChain
@@ -399,24 +503,15 @@ function onImageLoad ($img) {
 
 <style>
 .animate_breathe {
-  -webkit-animation-timing-function: ease-in-out;
-  -webkit-animation-name: breathe;
-  -webkit-animation-duration: 1500ms;
-  animation-delay: 500ms;
-  -webkit-animation-delay: 500ms;
-  -webkit-animation-iteration-count: infinite;
-  -webkit-animation-direction: alternate;
+  animation: breathe 1800ms ease-in-out 500ms infinite alternate;
 }
-@-webkit-keyframes breathe {
+@keyframes breathe {
   0% {
-    opacity: 0.4;
-    box-shadow: 0 1px 1px rgba(0, 147, 223, 0.4),
-      0 1px 1px rgba(0, 147, 223, 0.1) inset;
+    filter: drop-shadow(0 4px 10px rgba(141, 121, 232, 0.08));
   }
 
   100% {
-    opacity: 1;
-    box-shadow: 0 1px 15px #0093df, 0 1px 10px #0093df inset;
+    filter: drop-shadow(0 8px 18px rgba(141, 121, 232, 0.28));
   }
 }
 </style>

@@ -84,5 +84,10 @@ export default {
 /* 内容层 z-index 稍微高一点，防止被封面压住 */
 .letter-cover-wapper--content {
   z-index: 2200;
+  background:
+    radial-gradient(circle at 50% 16%, rgba(246, 242, 230, .95) 0 13%, transparent 42%),
+    radial-gradient(circle at 16% 74%, rgba(169, 182, 132, .5), transparent 32%),
+    radial-gradient(circle at 88% 82%, rgba(200, 183, 173, .42), transparent 34%),
+    linear-gradient(145deg, #c9c7ad 0%, #a9b08c 46%, #817d68 100%);
 }
 </style>
