@@ -42,7 +42,7 @@ Acceptance criteria:
 - `npm run build` 通过。
 - `origin/main` 指向本地最新提交，推送后工作区无未提交业务改动。
 
-Validation: `git ls-files node_modules` 为 0；`npm run build` 通过；远端 main 已成功接收相册性能提交，最终状态提交后再次核对远端 HEAD。
+Validation: `git ls-files node_modules` 为 0；`npm run build` 通过；`git rev-parse HEAD` 与 `git ls-remote origin refs/heads/main` 核对一致，工作区 clean。
 
 ### [x] 优化相册首次进入与滚动性能
 

@@ -2,7 +2,7 @@
 
 Created: 2026-10-27
 Branch: `main`
-Working tree: 功能提交和状态提交完成后应为 clean；`node_modules/`、`dist/`、`public/album-generated/`、`refui/` 与源相册视频由 `.gitignore` 排除
+Working tree: clean；`node_modules/`、`dist/`、`public/album-generated/`、`refui/` 与源相册视频由 `.gitignore` 排除
 
 ## Session Goal
 
@@ -24,7 +24,7 @@ Working tree: 功能提交和状态提交完成后应为 clean；`node_modules/`
 
 ## Uncommitted Changes
 
-无业务代码改动。结束前状态文件会单独提交并再次推送；本地忽略目录和源视频不属于工作区改动。
+无。本地忽略目录和源视频不属于工作区改动。
 
 ## Validation Results
 
@@ -34,7 +34,7 @@ Working tree: 功能提交和状态提交完成后应为 clean；`node_modules/`
 - `agent-browser`：优化前初始 135 个照片节点、列表图最大 3961px；优化后初始 18 个节点、最大 720px，滚动后增至 36；预览加载 1080×1440 完整 JPEG。
 - `git diff --check`：通过。
 - `git ls-files node_modules`：0。
-- `git push origin main`：成功，首次推送范围 `ab400e4..55e9d14`；最终状态提交后需再次核对远端 HEAD。
+- `git push origin main`：成功；最终核对时本地 `main` 与 `origin/main` HEAD 一致，工作区 clean。
 
 ## Failing Tests or Known Errors
 
