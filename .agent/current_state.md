@@ -2,11 +2,11 @@
 
 Last updated: 2026-10-27
 Current branch: `main`
-Current phase: 前端功能与资源已完成，仓库已整理为可由 Cloudflare Pages 构建部署的状态
+Current phase: 前端功能、相册性能优化与 GitHub main 推送已完成，可在 Cloudflare Pages 接入部署
 
 ## Current Objective
 
-将当前完整前端安全推送到 GitHub `main`，并使用 Cloudflare Pages 从 Git 仓库执行 `npm run build`、发布 `dist/`。
+在 Cloudflare Pages 连接 GitHub 仓库，使用 `npm run build` 构建并发布 `dist/`。
 
 ## Completed
 
@@ -26,6 +26,7 @@ Current phase: 前端功能与资源已完成，仓库已整理为可由 Cloudfl
 - 信件原有标题与逐段 Typed.js 打字、图片段落、纸内滚动、完成返回和右上关闭交互保持不变；粉色徽章、副标题、横线纸和悬浮回顶按钮已移除。
 - 聊天与相册使用约 420ms 的原生共享元素过渡；低动态或不支持 View Transition 时使用轻量回退。
 - 头像与相册均为本地前端构建功能，未增加 AI、接口或后端服务。
+- GitHub `origin/main` 已包含液态玻璃前端、双方头像、相册与信纸改造，以及相册缩略图和分批挂载优化。
 
 ## In Progress
 

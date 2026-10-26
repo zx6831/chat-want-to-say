@@ -6,23 +6,7 @@
 
 ## P1 — Next
 
-### [ ] 推送部署就绪版本到 GitHub main
-
-Status: in_progress
-
-Depends on: 最终构建通过、Git 暂存范围审查通过
-
-Blocked by: 无
-
-Scope: 清理已跟踪 `node_modules`，提交前端源码与静态资源，推送 `origin/main`，确认远端 HEAD 与本地一致。
-
-Acceptance criteria:
-
-- `node_modules/`、`dist/`、生成相册缓存和 `refui/` 不在新提交中。
-- `npm run build` 通过。
-- `origin/main` 指向本地最新提交，推送后工作区无未提交业务改动。
-
-Validation: `git ls-files node_modules`、`npm run build`、`git rev-parse HEAD` 与 `git ls-remote origin refs/heads/main`。
+无。
 
 ## P2 — Later
 
@@ -45,6 +29,20 @@ Acceptance criteria:
 Validation: 在目标设备完整走一遍答题、图片、信件打开与关闭流程。
 
 ## Completed
+
+### [x] 推送部署就绪版本到 GitHub main
+
+Status: completed
+
+Scope: 清理已跟踪依赖和未使用视频，提交完整前端与相册性能优化，并推送 `origin/main`。
+
+Acceptance criteria:
+
+- `node_modules/`、`dist/`、生成相册缓存和 `refui/` 不在新提交中。
+- `npm run build` 通过。
+- `origin/main` 指向本地最新提交，推送后工作区无未提交业务改动。
+
+Validation: `git ls-files node_modules` 为 0；`npm run build` 通过；远端 main 已成功接收相册性能提交，最终状态提交后再次核对远端 HEAD。
 
 ### [x] 优化相册首次进入与滚动性能
 
