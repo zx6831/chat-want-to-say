@@ -159,3 +159,15 @@ Evidence: 135 项 manifest 的 `takenAt` 单调升序检查通过；前端首项
 Correct approach: 生成端写入 ISO 时间和 `dateSource`，前端按相同字段防御性排序，不使用文件名推断拍摄时间。
 
 Related files/tests: `scripts/prepare-album.cjs::comparePhotos`、`AlbumSpace.vue::loadAlbum`；清单单调性脚本、`agent-browser` DOM 顺序检查。
+
+### 图片原生懒加载不能替代缩略图和 DOM 分批挂载
+
+Conclusion: `loading="lazy"` 只能推迟部分网络请求；一次渲染 135 个卡片并让网格直接引用多兆像素原图，仍会产生明显的 DOM、解码、内存与合成压力。
+
+Scope: 固定目录相册的列表滚动和后续大批量图片展示。
+
+Evidence: 优化前进入相册即存在 135 个照片节点，已加载列表图最大自然宽度 3961px；优化后初始节点为 18，列表图最大 720px，滚动后按批次增至 36，单图预览仍正确加载 1080×1440 完整图。135 个缩略图总计 3.94MB，平均 29.9KB。
+
+Correct approach: 构建阶段生成小尺寸 WebP 列表图；前端首批只挂载可用数量的卡片，以相册滚动容器为根通过 `IntersectionObserver` 逐批追加；预览保持使用完整兼容图。观察器必须在 loading 分支退出、哨兵节点实际挂载后的 `$nextTick` 中建立。
+
+Related files/tests: `scripts/prepare-album.cjs`、`src/components/chat-dialog/AlbumSpace.vue`；`npm run build`、`agent-browser` 节点数量/自然尺寸/预览源验证。

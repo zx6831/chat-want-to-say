@@ -20,6 +20,7 @@ Current phase: 前端功能与资源已完成，仓库已整理为可由 Cloudfl
 - 相册优先读取 EXIF `DateTimeOriginal`，其次读取 `CreateDate`；均不存在时使用文件创建时间。所有照片按时间升序显示，并以修改时间、文件名稳定打破并列。
 - 文件内容会通过魔数识别，扩展名与真实内容不一致的图片也能按实际格式处理。
 - 当前相册共 135 张：67 张 HEIC 转换、48 张使用元数据时间、87 张使用文件创建时间回退。MOV/MP4 不进入图片相册。
+- 相册列表使用构建期生成的 720px WebP 缩略图，首批只渲染 18 张；滚动接近底部时由 `IntersectionObserver` 每批追加 18 张，单图预览仍读取完整兼容图。
 - 用户输入框不再显示矩形 `focus-visible` 轮廓；进入 `userInput` 且输入为空时，整个胶囊外围显示连续彩色细环和同色模糊外辉光，开始输入后自动收敛。
 - 信件内容页已改为米白纸张：桌面与横屏保留 148:210 A5 比例，手机竖屏采用 iPhone 16 Pro 的 402:874 比例并接近铺满视口；顶部为透明水彩小羊草地插画，正文为楷体大留白排版，底部保留 `Dancing sunbeams` 花体落款。
 - 信件原有标题与逐段 Typed.js 打字、图片段落、纸内滚动、完成返回和右上关闭交互保持不变；粉色徽章、副标题、横线纸和悬浮回顶按钮已移除。
@@ -34,14 +35,14 @@ Current phase: 前端功能与资源已完成，仓库已整理为可由 Cloudfl
 
 - `ChatDialog` 保持消息状态机所有权，仅管理当前视图、头像状态和设置面板开关。
 - `AvatarSettings.vue` 管理双方头像选择、裁切、保存和恢复默认。
-- `scripts/prepare-album.cjs` 读取源图、提取时间、转换 HEIC，并生成按时间排序的 `public/album-generated/manifest.json`。
-- `AlbumSpace.vue` 读取生成清单，防御性再次按拍摄时间、修改时间和文件名排序，并管理拼贴与预览。
+- `scripts/prepare-album.cjs` 读取源图、提取时间、转换 HEIC，同时用 Sharp 为每张照片生成最长边 720px、质量 72 的 WebP 缩略图，并生成按时间排序的 `public/album-generated/manifest.json`。
+- `AlbumSpace.vue` 读取生成清单，防御性再次按拍摄时间、修改时间和文件名排序；网格消费缩略图并分批挂载 DOM，预览消费完整兼容图。
 - `letter/content.vue` 使用“桌面 A5、手机竖屏 402:874”的响应式纸张比例和内部 flex 滚动区；透明插画位于 `public/letter/lamb-watercolor.png`，不依赖外部网络。
 - `image-utils.js` 统一图片读取、Canvas 压缩和 JSON 本地存储。
 - 存储键：`chat-want-to-say:avatars:v1`；相册不再使用浏览器存储。
 - 默认头像由 `DEFAULT_AVATARS` 提供；本地自定义值优先，空值或无存储时回退到项目默认图片。
 - 相册目录支持 `.jpg`、`.jpeg`、`.png`、`.webp`、`.gif`、`.avif`、`.heic`、`.heif`，不递归读取子目录。
-- `predev`、`prebuild`、`prepreview` 自动执行相册预处理；生成目录被 Git 忽略，并使用源文件指纹增量复用生成图片。
+- `predev`、`prebuild`、`prepreview` 自动执行相册预处理；生成目录被 Git 忽略，并使用处理器版本、源文件名、大小和修改时间组成的指纹增量复用完整图与缩略图。
 - Git 不再跟踪 `node_modules/`；`.gitignore` 同时排除 `node_modules/`、`dist/`、`public/album-generated/` 和仅供设计参考的 `refui/`。
 - 桌面聊天窗宽 430px；`<=480px` 时铺满视口。玻璃材质继续使用低占比雾白、18px blur 和轻量高光。
 
@@ -49,8 +50,9 @@ Current phase: 前端功能与资源已完成，仓库已整理为可由 Cloudfl
 
 - `yarn album:prepare`：通过；生成 135 张照片，67 张 HEIC 转换，48 张元数据时间，87 张文件时间回退。
 - 相册清单单调性检查：通过，全部 `takenAt` 从早到晚；生成目录清单 135 项、图片 135 个、缺失 0、空文件 0。
-- `npm run build`：通过，Vite 2.9.18，437 modules transformed；构建产物相册清单 135 项、缺失 0；保留现有 Zepto 非 module 警告。
-- `agent-browser`：页面渲染 135 张照片，顺序为升序；转换后的 `IMG_7525.heic` 图片 3085×2314、解码完成并可打开预览，时间显示为 2025年12月27日 19:05；可见图片无破图。
+- `npm run build`：通过，Vite 2.9.18，438 modules transformed；构建产物相册清单 135 项、完整图与缩略图缺失 0；保留现有 Zepto 非 module 警告。
+- 缩略图完整性：135 个 WebP，总计 3.94MB、平均 29.9KB、最大 73.7KB；`dist/` 共 285 个文件、249.93MB。
+- `agent-browser` 相册性能验收：优化前进入页面立即挂载 135 个照片节点，已加载图片最大自然宽度 3961px；优化后首批只有 18 个节点，列表图最大 720px，滚动后节点按批次增至 36；点击照片后预览使用 1080×1440 的完整 JPEG，不误用缩略图。
 - 水彩小羊信纸：`npm run build` 通过，438 modules transformed；iPhone 16 Pro 逻辑视口 402×874 下卡片为 382×830.52、比例 0.459955，与 402:874 一致，左右边距 10px、上下边距约 21.7px且无横向溢出；1280×900 桌面为 460×652.69，844×390 横屏为 252.31×358，两者保持 A5 比例。
 - 信纸插画 PNG 为 1774×887，包含透明像素；浏览器自然尺寸加载完成。右上关闭按钮点击后 `.letter-content` 数量归零并返回聊天页。
 - 部署前最终构建：Node v22.20.0、Yarn 1.22.22 下 `npm run build` 通过，438 modules transformed；构建产物 150 个文件、245.98MB，最大单文件 6.57MB。
@@ -66,7 +68,7 @@ Current phase: 前端功能与资源已完成，仓库已整理为可由 Cloudfl
 - `index.html` 的传统 Zepto script 会触发 Vite “can't be bundled without type=module” 警告，但构建和运行正常。
 - 自定义头像仍依赖当前浏览器 `localStorage` 容量；固定目录相册不受该容量限制。
 - 尚未在真实 iOS/Android 设备验证文件选择器、软键盘、安全区和低端 GPU 模糊性能。
-- 首次处理大量 HEIC 会比后续启动慢；生成缓存存在时会按源文件指纹复用。
+- 首次处理大量 HEIC 并生成缩略图会比后续启动慢；本机首次新版预处理约 80 秒，生成缓存存在时会按版本化源文件指纹复用。
 - Cloudflare Pages 全球网络不保证中国大陆访问质量；如需稳定大陆访问，需要另行考虑境内部署、备案和 CDN。
 
 ## Blockers

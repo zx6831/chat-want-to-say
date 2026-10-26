@@ -22,6 +22,7 @@
     "heic-convert": "2.1.0",
     "sass": "~1.32.12",
     "scss": "^0.2.4",
+    "sharp": "0.34.4",
     "vite": "^2.7.2"
   },
   "license": "MIT"

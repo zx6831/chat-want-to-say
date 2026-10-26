@@ -3,11 +3,13 @@ const fs = require('fs/promises')
 const path = require('path')
 const exifr = require('exifr')
 const convertHeic = require('heic-convert')
+const sharp = require('sharp')
 
 const projectRoot = path.resolve(__dirname, '..')
 const sourceDir = path.join(projectRoot, 'src', 'assets', 'album')
 const outputDir = path.join(projectRoot, 'public', 'album-generated')
 const manifestPath = path.join(outputDir, 'manifest.json')
+const processorVersion = 'album-v2-thumb-720-webp72'
 
 const browserImageExtensions = new Set(['.avif', '.gif', '.jpeg', '.jpg', '.png', '.webp'])
 const heicExtensions = new Set(['.heic', '.heif'])
@@ -25,15 +27,19 @@ async function main () {
   const photos = await mapWithConcurrency(sourceNames, 2, preparePhoto)
   photos.sort(comparePhotos)
 
-  const keepFiles = new Set(['manifest.json', ...photos.map(photo => photo.file)])
+  const keepFiles = new Set([
+    'manifest.json',
+    ...photos.flatMap(photo => [photo.file, photo.thumbnail])
+  ])
   const generatedEntries = await fs.readdir(outputDir, { withFileTypes: true })
   await Promise.all(generatedEntries
     .filter(entry => entry.isFile() && !keepFiles.has(entry.name))
     .map(entry => fs.unlink(path.join(outputDir, entry.name))))
 
-  const manifest = photos.map(({ file, ...photo }) => ({
+  const manifest = photos.map(({ file, thumbnail, ...photo }) => ({
     ...photo,
-    src: file
+    src: file,
+    thumbnail
   }))
   await fs.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
 
@@ -52,13 +58,15 @@ async function preparePhoto (name) {
   const takenAtMs = metadataDate || validTimestamp(stats.birthtimeMs) || validTimestamp(stats.ctimeMs) || stats.mtimeMs
   const fingerprint = crypto
     .createHash('sha1')
-    .update(`${name}\0${stats.size}\0${stats.mtimeMs}`)
+    .update(`${processorVersion}\0${name}\0${stats.size}\0${stats.mtimeMs}`)
     .digest('hex')
     .slice(0, 16)
   const needsHeicConversion = heicExtensions.has(detectedFormat)
   const outputExtension = needsHeicConversion ? '.jpg' : detectedFormat
   const outputName = `${fingerprint}${outputExtension}`
   const outputPath = path.join(outputDir, outputName)
+  const thumbnailName = `${fingerprint}-thumb.webp`
+  const thumbnailPath = path.join(outputDir, thumbnailName)
 
   if (!(await fileExists(outputPath))) {
     if (needsHeicConversion) {
@@ -77,9 +85,27 @@ async function preparePhoto (name) {
     }
   }
 
+  if (!(await fileExists(thumbnailPath))) {
+    try {
+      await sharp(outputPath, { failOn: 'none' })
+        .rotate()
+        .resize({
+          width: 720,
+          height: 720,
+          fit: 'inside',
+          withoutEnlargement: true
+        })
+        .webp({ quality: 72, effort: 4 })
+        .toFile(thumbnailPath)
+    } catch (error) {
+      throw new Error(`${name} thumbnail generation failed: ${error.message}`)
+    }
+  }
+
   return {
     id: fingerprint,
     file: outputName,
+    thumbnail: thumbnailName,
     name,
     takenAt: new Date(takenAtMs).toISOString(),
     dateSource: metadataDate ? 'metadata' : 'file-created',

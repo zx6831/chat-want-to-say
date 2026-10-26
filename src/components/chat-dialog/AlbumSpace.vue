@@ -19,18 +19,23 @@
         <h2>正在整理照片</h2>
       </div>
 
-      <div v-else-if="photos.length" class="album-grid">
-        <button
-          v-for="(photo, index) in photos"
-          :key="photo.id"
-          class="album-photo"
-          type="button"
-          :aria-label="`查看照片 ${index + 1}`"
-          @click="selectedPhoto = photo"
-        >
-          <img :src="photo.src" :alt="photo.name || `相册照片 ${index + 1}`" loading="lazy" decoding="async" />
-          <span><b>{{ String(index + 1).padStart(2, '0') }}</b><small>{{ formatPhotoDate(photo.takenAt) }}</small></span>
-        </button>
+      <div v-else-if="photos.length" class="album-gallery">
+        <div class="album-grid">
+          <button
+            v-for="(photo, index) in visiblePhotos"
+            :key="photo.id"
+            class="album-photo"
+            type="button"
+            :aria-label="`查看照片 ${index + 1}`"
+            @click="selectedPhoto = photo"
+          >
+            <img :src="photo.thumbnail || photo.src" :alt="photo.name || `相册照片 ${index + 1}`" loading="lazy" decoding="async" />
+            <span><b>{{ String(index + 1).padStart(2, '0') }}</b><small>{{ formatPhotoDate(photo.takenAt) }}</small></span>
+          </button>
+        </div>
+        <div v-if="hasMorePhotos" ref="loadMoreSentinel" class="album-load-sentinel" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </div>
       </div>
 
       <div v-else class="album-empty">
@@ -72,11 +77,25 @@ export default {
       photos: [],
       selectedPhoto: null,
       albumLoading: true,
-      albumLoadError: ''
+      albumLoadError: '',
+      renderedPhotoCount: 18,
+      photoBatchSize: 18,
+      loadMoreObserver: null
+    }
+  },
+  computed: {
+    visiblePhotos () {
+      return this.photos.slice(0, this.renderedPhotoCount)
+    },
+    hasMorePhotos () {
+      return this.renderedPhotoCount < this.photos.length
     }
   },
   created () {
     this.loadAlbum()
+  },
+  beforeUnmount () {
+    this.disconnectLoadMoreObserver()
   },
   methods: {
     async loadAlbum () {
@@ -86,15 +105,42 @@ export default {
         const manifest = await response.json()
         this.photos = (Array.isArray(manifest) ? manifest : [])
           .map(photo => ({ ...photo, src: `${albumBaseUrl}${photo.src}` }))
+          .map(photo => ({ ...photo, thumbnail: photo.thumbnail ? `${albumBaseUrl}${photo.thumbnail}` : photo.src }))
           .sort((left, right) => Date.parse(left.takenAt) - Date.parse(right.takenAt) ||
             Date.parse(left.modifiedAt) - Date.parse(right.modifiedAt) ||
             left.name.localeCompare(right.name, 'zh-CN', { numeric: true }))
+        this.renderedPhotoCount = Math.min(this.photoBatchSize, this.photos.length)
       } catch (error) {
         this.albumLoadError = '相册读取失败，请重新启动或构建项目'
         console.error('Album manifest load failed:', error)
       } finally {
         this.albumLoading = false
+        if (this.photos.length) this.$nextTick(this.setupLoadMoreObserver)
       }
+    },
+    setupLoadMoreObserver () {
+      this.disconnectLoadMoreObserver()
+      if (!this.hasMorePhotos) return
+      if (typeof IntersectionObserver === 'undefined') {
+        this.renderedPhotoCount = this.photos.length
+        return
+      }
+      this.loadMoreObserver = new IntersectionObserver((entries) => {
+        if (entries.some(entry => entry.isIntersecting)) this.loadMorePhotos()
+      }, {
+        root: this.$el.querySelector('.album-content'),
+        rootMargin: '360px 0px'
+      })
+      if (this.$refs.loadMoreSentinel) this.loadMoreObserver.observe(this.$refs.loadMoreSentinel)
+    },
+    disconnectLoadMoreObserver () {
+      if (!this.loadMoreObserver) return
+      this.loadMoreObserver.disconnect()
+      this.loadMoreObserver = null
+    },
+    loadMorePhotos () {
+      this.renderedPhotoCount = Math.min(this.renderedPhotoCount + this.photoBatchSize, this.photos.length)
+      if (!this.hasMorePhotos) this.disconnectLoadMoreObserver()
     },
     formatPhotoDate (value, withTime = false) {
       const date = new Date(value)
@@ -193,6 +239,7 @@ export default {
   scrollbar-width: none;
 }
 .album-content::-webkit-scrollbar { display: none; }
+.album-gallery { min-height: 100%; }
 .album-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); grid-auto-rows: 112px; gap: 8px; }
 
 .album-photo {
@@ -206,6 +253,7 @@ export default {
   background: rgba(255,255,255,.34);
   box-shadow: 0 9px 24px rgba(62,54,102,.1), inset 0 1px 0 rgba(255,255,255,.72);
   cursor: zoom-in;
+  contain: layout paint;
 }
 .album-photo:nth-child(7n + 1) { grid-column: span 2; grid-row: span 2; }
 .album-photo:nth-child(7n + 4) { grid-column: span 2; }
@@ -214,6 +262,10 @@ export default {
 .album-photo > span { position: absolute; inset: auto 0 0; display: flex; align-items: end; justify-content: space-between; gap: 8px; padding: 22px 9px 8px; background: linear-gradient(transparent,rgba(29,25,47,.54)); }
 .album-photo b { font-size: 9px; letter-spacing: .12em; }
 .album-photo small { font-size: 8px; }
+.album-load-sentinel { display: flex; justify-content: center; gap: 5px; min-height: 54px; padding-top: 20px; box-sizing: border-box; }
+.album-load-sentinel span { width: 4px; height: 4px; border-radius: 50%; background: rgba(118,102,196,.45); animation: album-load-pulse 1.1s ease-in-out infinite alternate; }
+.album-load-sentinel span:nth-child(2) { animation-delay: .16s; }
+.album-load-sentinel span:nth-child(3) { animation-delay: .32s; }
 
 .album-empty {
   display: grid;
@@ -263,6 +315,7 @@ export default {
 .photo-preview-enter-from figure,.photo-preview-leave-to figure { transform: scale(.96) translateY(8px); }
 
 @keyframes album-fallback-in { from { opacity: .6; transform: translateX(18px); } }
+@keyframes album-load-pulse { to { opacity: .25; transform: translateY(-3px); } }
 @media (max-width: 360px) { .album-header { padding-inline: 10px; gap: 7px; }.album-grid { grid-auto-rows: 98px; gap: 7px; }.album-hero { padding-inline: 11px; }.album-content { padding-inline: 10px; } }
-@media (prefers-reduced-motion: reduce) { .album-space,.album-photo img,.photo-preview-enter-active,.photo-preview-leave-active,.photo-preview-enter-active figure,.photo-preview-leave-active figure { animation: none; transition: none; } }
+@media (prefers-reduced-motion: reduce) { .album-space,.album-photo img,.album-load-sentinel span,.photo-preview-enter-active,.photo-preview-leave-active,.photo-preview-enter-active figure,.photo-preview-leave-active figure { animation: none; transition: none; } }
 </style>
