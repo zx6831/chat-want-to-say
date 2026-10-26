@@ -2,3 +2,7 @@
 /dist/
 /public/album-generated/
 /refui/
+/src/assets/album/*.MOV
+/src/assets/album/*.mov
+/src/assets/album/*.MP4
+/src/assets/album/*.mp4
