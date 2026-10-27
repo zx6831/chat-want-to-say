@@ -171,3 +171,27 @@ Evidence: 优化前进入相册即存在 135 个照片节点，已加载列表�
 Correct approach: 构建阶段生成小尺寸 WebP 列表图；前端首批只挂载可用数量的卡片，以相册滚动容器为根通过 `IntersectionObserver` 逐批追加；预览保持使用完整兼容图。观察器必须在 loading 分支退出、哨兵节点实际挂载后的 `$nextTick` 中建立。
 
 Related files/tests: `scripts/prepare-album.cjs`、`src/components/chat-dialog/AlbumSpace.vue`；`npm run build`、`agent-browser` 节点数量/自然尺寸/预览源验证。
+
+### 连续页面背景只能由一个根层绘制
+
+Conclusion: 头部、消息区和底部若各自叠加半透明渐变，即使颜色相近，也会在容器边界出现可见接缝。
+
+Scope: 移动端聊天页及其他全屏玻璃界面。
+
+Evidence: 将完整渐变提升到 `#mobile`，并把三段子容器改为透明后，402×874 截图边缘相邻行色差顶部由 13.93 降至 2.47、底部由 10.36 降至 2.55。
+
+Correct approach: 根容器负责连续底色和渐变；分区只负责布局与玻璃控件，跨分区装饰层覆盖整个根区域，避免在 header/body/footer 边缘重新开始绘制。
+
+Related files/tests: `css/_mobile.scss`、`css/_mobile.body.scss`；修复前后截图像素扫描。
+
+### iOS 键盘布局必须持续跟随 VisualViewport
+
+Conclusion: 只在 focus 后调用 `scrollIntoView()` 或等待少量帧，无法覆盖 iOS/微信键盘动画中异步发生的可视高度、顶部偏移和根页面滚动变化。
+
+Scope: 移动端聊天输入、固定底栏和消息列表滚动。
+
+Evidence: 模拟可视高度 874→520→874 后，根容器与输入栏精确贴合视口、横向边距保持 14px、页面滚动归零；历史 `scrollTop=140` 在高度变化后保持不变，底部状态则继续跟随最新消息。
+
+Correct approach: 使用 `visualViewport.height/offsetTop` 驱动根容器 CSS 变量，监听 window 与 visualViewport 的 resize/scroll、focus/blur，并在键盘动画窗口持续复位异常根滚动；用 `ResizeObserver` 区分“跟随最新”和“保留历史位置”。
+
+Related files/tests: `src/components/chat-dialog/index.vue`、`css/_mobile.scss`；`agent-browser` 402×874、402×520 键盘开合及历史位置回归。

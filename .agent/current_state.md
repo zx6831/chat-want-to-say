@@ -2,11 +2,11 @@
 
 Last updated: 2026-10-27
 Current branch: `main`
-Current phase: 前端功能、相册性能优化与 GitHub main 推送已完成，可在 Cloudflare Pages 接入部署
+Current phase: 前端功能、相册性能、移动端统一背景和键盘视口修复已推送 GitHub main
 
 ## Current Objective
 
-在 Cloudflare Pages 连接 GitHub 仓库，使用 `npm run build` 构建并发布 `dist/`。
+在真实 iPhone 微信内置浏览器验收键盘动画、安全区和滚动手感；保留并行中的相册拼贴调整。
 
 ## Completed
 
@@ -27,10 +27,13 @@ Current phase: 前端功能、相册性能优化与 GitHub main 推送已完成�
 - 聊天与相册使用约 420ms 的原生共享元素过渡；低动态或不支持 View Transition 时使用轻量回退。
 - 头像与相册均为本地前端构建功能，未增加 AI、接口或后端服务。
 - GitHub `origin/main` 已包含液态玻璃前端、双方头像、相册与信纸改造，以及相册缩略图和分批挂载优化。
+- 聊天页背景改为由 `#mobile` 根容器一次性绘制，头部、消息区和输入区透明叠放；上下背景不再因独立半透明层产生颜色分界。
+- 移动端聊天区域持续跟随 `visualViewport.height/offsetTop`；键盘开合期间纠正根页面异常滚动，输入栏保持固定横向边距。
+- 消息容器使用 `ResizeObserver` 响应可用高度变化：位于底部时跟随最新消息，阅读历史时保留原 `scrollTop`。
 
 ## In Progress
 
-- 无。
+- 工作区存在用户并行编辑的 `AlbumSpace.vue` 拼贴布局与 `_global.scss` 层级调整；未包含在移动端修复提交中，需继续保留，当前组合工作区尚未重新构建验证。
 
 ## Architecture and Key Decisions
 
@@ -46,6 +49,7 @@ Current phase: 前端功能、相册性能优化与 GitHub main 推送已完成�
 - `predev`、`prebuild`、`prepreview` 自动执行相册预处理；生成目录被 Git 忽略，并使用处理器版本、源文件名、大小和修改时间组成的指纹增量复用完整图与缩略图。
 - Git 不再跟踪 `node_modules/`；`.gitignore` 同时排除 `node_modules/`、`dist/`、`public/album-generated/` 和仅供设计参考的 `refui/`。
 - 桌面聊天窗宽 430px；`<=480px` 时铺满视口。玻璃材质继续使用低占比雾白、18px blur 和轻量高光。
+- `index.vue` 在移动视口通过 CSS 变量 `--chat-viewport-height`、`--chat-viewport-top` 驱动固定聊天根容器；焦点、window/visualViewport 的 resize/scroll 事件共同触发同步，收起键盘时清零残留顶部偏移。
 
 ## Validation Status
 
@@ -63,12 +67,16 @@ Current phase: 前端功能、相册性能优化与 GitHub main 推送已完成�
 - 全新 Chrome 配置清空本地存储后：头像面板加载 `/avatars/author.jpg`（401×401）和 `/avatars/me.jpg`（940×940），5 条对方消息均使用蓝色默认头像。
 - `agent-browser` 文案验收：聊天页胶囊可见文本为“王泽贤”；进入相册后 H1 为“我们俩”，`.album-hero small` 数量为 0。
 - `agent-browser` 输入态验收：输入框为 `outline: none`；空输入时运行 `composerRingFlow` 和 `composerRingGlow`，计算样式包含六色线性渐变、8px 模糊与 1.35 饱和；输入“雨”后状态类、动画和伪元素不透明度均归零。
+- 背景接缝回归：402×874 截图边缘相邻行最大色差，顶部从 13.93 降至 2.47，底部从 10.36 降至 2.55；头部、主体和底部计算背景均透明，根容器独占完整渐变。
+- 键盘视口回归：模拟 874→520→874 高度时，聊天根区域分别精确为 520/874px，输入栏左右边距始终 14px，底部对齐可视视口，`scrollY` 始终为 0；最新消息距离底部为 0。
+- 历史阅读回归：添加浏览器临时长内容后将 `scrollTop` 设为 140，视口变化后仍保持 140，没有被强制拉到底部。
+- 移动端修复后 `npm run build`：通过，Vite 2.9.18，438 modules transformed；仅保留现有 Zepto 非 module 警告。
 
 ## Known Problems
 
 - `index.html` 的传统 Zepto script 会触发 Vite “can't be bundled without type=module” 警告，但构建和运行正常。
 - 自定义头像仍依赖当前浏览器 `localStorage` 容量；固定目录相册不受该容量限制。
-- 尚未在真实 iOS/Android 设备验证文件选择器、软键盘、安全区和低端 GPU 模糊性能。
+- 已完成桌面 Chrome 的 `visualViewport` 键盘高度模拟；真实 iPhone 微信键盘动画、安全区和延迟滚动仍需真机验收。
 - 首次处理大量 HEIC 并生成缩略图会比后续启动慢；本机首次新版预处理约 80 秒，生成缓存存在时会按版本化源文件指纹复用。
 - Cloudflare Pages 全球网络不保证中国大陆访问质量；如需稳定大陆访问，需要另行考虑境内部署、备案和 CDN。
 
