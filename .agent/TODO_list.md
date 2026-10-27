@@ -6,15 +6,15 @@
 
 ## P1 — Next
 
-### [ ] 在真实 iPhone 微信复验第二版键盘防护
+### [ ] 在真实 iPhone 微信复验参考工程键盘状态机
 
 Status: blocked
 
-Depends on: Cloudflare Pages 部署包含异常 VisualViewport 防护的最新 main
+Depends on: Cloudflare Pages 部署包含第三版键盘状态机的最新 main
 
 Blocked by: 需要用户在真实 iPhone 微信内置浏览器触发软键盘
 
-Scope: 首次唤起、收起、再次唤起、连续输入、页面工具栏展开/收起和 Dynamic Island 状态变化。
+Scope: 首次唤起、输入框失焦但键盘仍在收起动画、完全收起、再次唤起、页面工具栏展开/收起和 Dynamic Island 状态变化。
 
 Acceptance criteria:
 
@@ -22,7 +22,7 @@ Acceptance criteria:
 - 输入栏贴近键盘上沿且左右不跳动。
 - 收起后聊天根层恢复完整高度和 top=0。
 
-Validation: 真机截图或录屏；必要时读取根节点 `data-viewport-source`、`data-viewport-height`、`data-viewport-top`。
+Validation: 真机截图或录屏；必要时读取根节点 `data-viewport-source`、`data-viewport-height`、`data-viewport-top`、`data-viewport-obscured`。
 
 ## P2 — Later
 
@@ -46,6 +46,21 @@ Acceptance criteria:
 Validation: 在目标设备完整走一遍答题、图片、信件打开与关闭流程。
 
 ## Completed
+
+### [x] 迁移参考工程的 iOS 键盘会话状态机
+
+Status: completed
+
+Scope: 展开高度基线、键盘会话、偏移夹紧、pinch zoom 排除、根页面固定、16px 触屏输入字号和 `interactive-widget=resizes-content`。
+
+Acceptance criteria:
+
+- 异常大的 `offsetTop` 不会把 `#mobile` 推出布局可见范围。
+- 输入失焦但键盘动画未结束时，聊天根层保持缩小后的高度和正确顶部。
+- 视口完全恢复后键盘状态、顶部偏移和页面滚动全部归零。
+- pinch zoom 不被误判为软键盘。
+
+Validation: `npm run test:viewport`、`npm run test:album-order`、`npm run build` 和 `git diff --check` 均通过；实际 Vue 组件注入的四阶段几何分别为 `(top,height)=(368,506)、(90,506)、(0,874)、(0,874)`，页面滚动始终为 0。
 
 ### [x] 修正相册排序的时间回退优先级
 

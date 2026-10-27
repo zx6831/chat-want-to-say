@@ -2,11 +2,11 @@
 
 Last updated: 2026-10-27
 Current branch: `main`
-Current phase: 相册时间优先级修复已完成验证、尚未提交；第二版 iPhone/WKWebView 视口防护与手机信纸排版已在 `main`
+Current phase: 第三版 iPhone/WKWebView 键盘视口修复已完成验证并推送 `main`；等待真实 iPhone 微信复验
 
 ## Current Objective
 
-确保相册严格按照“拍摄时间 → 修改时间 → 创建时间”选择排序日期；等待真实 iPhone 微信内置浏览器复验键盘动画和信纸逐字排版。
+将参考工程 `C:\Users\zx\Desktop\fuyue-chat-source-20261023` 的键盘会话状态机迁移到聊天页，解决微信 WebView 异常偏移把整套 UI 推出可视区的问题；等待部署后真实 iPhone 微信复验。
 
 ## Completed
 
@@ -33,13 +33,14 @@ Current phase: 相册时间优先级修复已完成验证、尚未提交；第�
 - 移动端聊天区域持续跟随 `visualViewport.height/offsetTop`；键盘开合期间纠正根页面异常滚动，输入栏保持固定横向边距。
 - 消息容器使用 `ResizeObserver` 响应可用高度变化：位于底部时跟随最新消息，阅读历史时保留原 `scrollTop`。
 - 移动视口解析器会拒绝 `visualViewport.height=0` 或异常小值，依次回退到可信 `innerHeight`、最后稳定高度或布局高度，防止聊天根层被压成 1px。
-- 顶部补偿同时参考 `offsetTop` 与 `pageTop - scrollY`；输入失焦时强制清零 WebKit 残留偏移。
+- 第三版键盘逻辑按参考工程维护“展开高度基线 + 键盘会话”：`offsetTop` 被夹在布局有效范围内，输入失焦后在视口完全恢复前仍保持键盘布局，视口缩放不会误判为键盘。
+- 移动端页面根级固定并禁止外层滚动，viewport meta 使用 `viewport-fit=cover, interactive-widget=resizes-content`；触屏输入字号固定为 16px，避免 iOS 聚焦自动缩放。
 - 手机竖屏信纸正文固定为每行 20 个字符单元，首行因两格缩进显示 18 字；正文使用硬换行和左对齐，后续逐字出现不会再改变上一行字距或断行。
 
 ## In Progress
 
-- 相册时间优先级修复及其回归脚本已完成验证，但尚未提交或推送。
-- 第二版键盘修复提交 `85e4a82` 已推送 `origin/main` 并通过自动化异常值注入，仍待真实 iPhone 微信复验。
+- 第三版键盘修复已通过纯函数回归、实际 Vue 组件异常指标注入和生产构建，并已推送；等待真实 iPhone 微信复验。
+- 本次排查期间并行出现一组未提交的相册源文件时间持久化改动（`package.json`、`scripts/prepare-album.cjs`、`scripts/check-album-order.cjs`、`scripts/capture-album-file-dates.cjs`、`src/assets/album/README.md`）；它们未纳入键盘提交，当前相册测试与构建通过。
 
 ## Architecture and Key Decisions
 
@@ -58,7 +59,7 @@ Current phase: 相册时间优先级修复已完成验证、尚未提交；第�
 - `predev`、`prebuild`、`prepreview` 自动执行相册预处理；生成目录被 Git 忽略，并使用处理器版本、源文件名、大小和修改时间组成的指纹增量复用完整图与缩略图。
 - Git 不再跟踪 `node_modules/`；`.gitignore` 同时排除 `node_modules/`、`dist/`、`public/album-generated/` 和仅供设计参考的 `refui/`。
 - 桌面聊天窗宽 430px；`<=480px` 时铺满视口。玻璃材质继续使用低占比雾白、18px blur 和轻量高光。
-- `index.vue` 通过 `viewport-utils.mjs` 校验 VisualViewport，再用 CSS 变量 `--chat-viewport-height`、`--chat-viewport-top` 驱动固定聊天根容器；根节点的 `data-viewport-source/height/top` 用于真机诊断。
+- `index.vue` 通过 `viewport-utils.mjs` 维护展开高度、键盘会话、宽度基线和缩放状态，再用 CSS 变量 `--chat-viewport-height`、`--chat-viewport-top` 驱动固定聊天根容器；根节点的 `data-viewport-source/height/top/obscured` 用于真机诊断。
 
 ## Validation Status
 
@@ -84,17 +85,17 @@ Current phase: 相册时间优先级修复已完成验证、尚未提交；第�
 - 六图相册与移动端修复组合后的 `npm run build`：通过，Vite 2.9.18，438 modules transformed；`git diff --check` 通过，仅保留换行提示和既有 Zepto 警告。
 - `agent-browser` 390×844：首组大图 238.7×203、小图 115.3×97.5，左大右小；第二组同尺寸左右镜像；`scrollWidth=390`。
 - 相册滚动到底后共渲染 135 张、23 组、破图 0；尾组 3 张高度由 414px 收为 203px，底部间距 28px。照片计算样式为 `opacity: 1`、`filter: none`、`mix-blend-mode: normal`。
-- `npm run test:viewport`：通过；覆盖 VisualViewport 高度为 0、`offsetTop` 延迟而 `pageTop` 已更新，以及键盘收起后残留偏移三类 WebKit 场景。
-- `agent-browser` 异常注入：`height=0/offsetTop=420` 时根层回退为 506px，头部保持 0–82px、底栏 424–506px；`offsetTop=0/pageTop=84` 时根层 top=84；失焦且残留 24px 时恢复 top=0。
+- `npm run test:viewport`：通过；覆盖 VisualViewport 高度为 0、正常平移、异常超大偏移夹紧、失焦但键盘未收完、键盘收起残留偏移和 pinch zoom 六类 WebKit 场景。
+- `agent-browser` 实际 Vue 组件注入：`height=506/offsetTop=900` 时根层夹紧为 top=368、height=506；失焦且视口仍缩小时保持 top=90 和键盘状态；恢复到 874px 后 top=0；scale=2 时保持 874px 且不进入键盘状态，所有阶段 `scrollY=0`。
 - 第二版正常路径回归：874→520→874 时根层高度、头尾位置、最新消息跟随和 `scrollY=0` 正常；历史 `scrollTop=140` 在高度变化后保持不变。
-- 第二版键盘防护、六图相册与并行信纸工作区组合的 `npm run build`：通过，Vite 2.9.18，439 modules transformed；仅保留既有 Zepto 警告。
+- 第三版键盘会话修复与当前全部功能组合的 `npm run build`：通过，Vite 2.9.18，439 modules transformed；仅保留既有 Zepto 警告。
 - `agent-browser` 402×874 信纸动态验收：第 20 字与第 45 字时第一行 18 个字的 x/y/宽度最大变化均为 0；实际含停顿标记的长段落分行为 18/20/20/20/20/17，停顿标记未计入字数；计算样式为左对齐、正常字距、`pre-wrap`。
 
 ## Known Problems
 
 - `index.html` 的传统 Zepto script 会触发 Vite “can't be bundled without type=module” 警告，但构建和运行正常。
 - 自定义头像仍依赖当前浏览器 `localStorage` 容量；固定目录相册不受该容量限制。
-- 第二版已覆盖 WebKit 已知的零高度与延迟偏移数据，但真实 iPhone 微信键盘动画和合成层绘制仍需部署后真机复验。
+- 第三版已覆盖零高度、超大偏移、失焦过渡、页面滚动和 pinch zoom，但真实 iPhone 微信键盘动画及 Dynamic Island/浏览器工具栏组合仍需部署后真机复验。
 - 手机信纸固定字数已在 Chrome 402×874 模拟视口验证，真实 iPhone 字体回退和微信内置浏览器渲染仍需真机目视确认。
 - 首次处理大量 HEIC 并生成缩略图会比后续启动慢；本机首次新版预处理约 80 秒，生成缓存存在时会按版本化源文件指纹复用。
 - Cloudflare Pages 全球网络不保证中国大陆访问质量；如需稳定大陆访问，需要另行考虑境内部署、备案和 CDN。

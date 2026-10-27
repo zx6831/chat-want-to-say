@@ -292,6 +292,10 @@
 
 .user-message-input::placeholder { color: #9aa0b3; }
 
+@media (pointer: coarse) {
+    .user-message-input { font-size: 16px; }
+}
+
 .send-button {
     display: grid;
     place-items: center;

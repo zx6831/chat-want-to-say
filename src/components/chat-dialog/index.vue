@@ -249,22 +249,25 @@ export default {
     setupViewportTracking () {
       this.$nextTick(() => {
         const viewport = window.visualViewport
-        const input = this.$refs.userMsgInputRef
         this._visualViewport = viewport
         this._layoutViewportHeight = Math.max(
           window.innerHeight || 0,
           document.documentElement.clientHeight || 0,
           viewport ? viewport.height : 0
         )
+        this._expandedViewportHeight = window.innerHeight || this._layoutViewportHeight
+        this._viewportWidth = window.innerWidth
+        this._keyboardSession = false
         this._lastStableViewportHeight = this._layoutViewportHeight
         this._handleViewportChange = () => {
           this.queueViewportSync()
           this.scheduleViewportStabilization()
         }
         this._handleRootScroll = () => {
+          if (Math.abs(((this._visualViewport && this._visualViewport.scale) || 1) - 1) > .01) return
           let corrected = false
           if (window.scrollX || window.scrollY || document.documentElement.scrollTop || document.body.scrollTop) {
-            window.scrollTo(0, 0)
+            window.scrollTo({ left: 0, top: 0, behavior: 'instant' })
             document.documentElement.scrollTop = 0
             document.body.scrollTop = 0
             corrected = true
@@ -280,13 +283,11 @@ export default {
         window.addEventListener('resize', this._handleViewportChange, { passive: true })
         window.addEventListener('orientationchange', this._handleViewportChange, { passive: true })
         window.addEventListener('scroll', this._handleRootScroll, { passive: true })
+        document.addEventListener('focusin', this._handleInputViewportChange)
+        document.addEventListener('focusout', this._handleInputViewportChange)
         if (viewport) {
           viewport.addEventListener('resize', this._handleViewportChange, { passive: true })
           viewport.addEventListener('scroll', this._handleViewportChange, { passive: true })
-        }
-        if (input) {
-          input.addEventListener('focus', this._handleInputViewportChange)
-          input.addEventListener('blur', this._handleInputViewportChange)
         }
         if (typeof ResizeObserver !== 'undefined' && this.$refs.chatContent) {
           this._chatResizeObserver = new ResizeObserver(() => this.handleChatResize())
@@ -298,17 +299,14 @@ export default {
 
     teardownViewportTracking () {
       const viewport = this._visualViewport
-      const input = this.$refs.userMsgInputRef
       window.removeEventListener('resize', this._handleViewportChange)
       window.removeEventListener('orientationchange', this._handleViewportChange)
       window.removeEventListener('scroll', this._handleRootScroll)
+      document.removeEventListener('focusin', this._handleInputViewportChange)
+      document.removeEventListener('focusout', this._handleInputViewportChange)
       if (viewport) {
         viewport.removeEventListener('resize', this._handleViewportChange)
         viewport.removeEventListener('scroll', this._handleViewportChange)
-      }
-      if (input) {
-        input.removeEventListener('focus', this._handleInputViewportChange)
-        input.removeEventListener('blur', this._handleInputViewportChange)
       }
       if (this._chatResizeObserver) this._chatResizeObserver.disconnect()
       if (this._viewportFrame) cancelAnimationFrame(this._viewportFrame)
@@ -333,28 +331,29 @@ export default {
         delete root.dataset.viewportSource
         delete root.dataset.viewportHeight
         delete root.dataset.viewportTop
+        delete root.dataset.viewportObscured
         return
       }
 
       const viewport = window.visualViewport
       const inputFocused = document.activeElement === this.$refs.userMsgInputRef
-      if (!inputFocused) {
-        this._layoutViewportHeight = Math.max(
-          window.innerHeight || 0,
-          document.documentElement.clientHeight || 0,
-          viewport && viewport.height > 0 ? viewport.height : 0
-        )
-      }
+      this._handleRootScroll()
       const resolvedViewport = resolveMobileViewport({
         visualHeight: viewport ? viewport.height : window.innerHeight,
         innerHeight: window.innerHeight,
         layoutHeight: this._layoutViewportHeight,
+        expandedHeight: this._expandedViewportHeight,
         lastStableHeight: this._lastStableViewportHeight,
         offsetTop: viewport ? viewport.offsetTop : 0,
-        pageTop: viewport ? viewport.pageTop : window.scrollY,
-        scrollY: window.scrollY,
-        inputFocused
+        scale: viewport ? viewport.scale : 1,
+        inputFocused,
+        keyboardSession: this._keyboardSession,
+        viewportWidth: window.innerWidth,
+        previousViewportWidth: this._viewportWidth
       })
+      this._expandedViewportHeight = resolvedViewport.expandedHeight
+      this._viewportWidth = resolvedViewport.viewportWidth
+      this._keyboardSession = resolvedViewport.keyboardOpen
       if (resolvedViewport.visualHeightReliable) {
         this._lastStableViewportHeight = resolvedViewport.height
       }
@@ -366,7 +365,7 @@ export default {
       root.dataset.viewportSource = resolvedViewport.source
       root.dataset.viewportHeight = String(resolvedViewport.height)
       root.dataset.viewportTop = String(resolvedViewport.top)
-      if (!resolvedViewport.keyboardOpen) this._handleRootScroll()
+      root.dataset.viewportObscured = String(Math.max(0, Math.round(resolvedViewport.obscuredHeight)))
     },
 
     scheduleViewportStabilization () {

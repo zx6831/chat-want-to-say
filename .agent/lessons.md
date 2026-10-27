@@ -186,25 +186,25 @@ Related files/tests: `css/_mobile.scss`、`css/_mobile.body.scss`；修复前后
 
 ### iOS 键盘布局必须持续跟随 VisualViewport
 
-Conclusion: 只在 focus 后调用 `scrollIntoView()` 或等待少量帧，无法覆盖 iOS/微信键盘动画中异步发生的可视高度、顶部偏移和根页面滚动变化；同时不能默认 VisualViewport 的每次读数都可信。
+Conclusion: 只在 focus 后调用 `scrollIntoView()` 或等待少量帧，无法覆盖 iOS/微信键盘动画中异步发生的可视高度、顶部偏移和根页面滚动变化；键盘开关也不能只由当前焦点决定，必须维持到可视高度真正恢复。
 
 Scope: 移动端聊天输入、固定底栏和消息列表滚动。
 
 Evidence: 模拟可视高度 874→520→874 后，根容器与输入栏精确贴合视口、横向边距保持 14px、页面滚动归零；历史 `scrollTop=140` 在高度变化后保持不变，底部状态则继续跟随最新消息。
 
-Correct approach: 使用经过校验的 `visualViewport.height/offsetTop/pageTop` 驱动根容器 CSS 变量，监听 window 与 visualViewport 的 resize/scroll、focus/blur，并在键盘动画窗口持续复查；高度为 0 或异常小时使用可信回退，不能写成 1px；用 `ResizeObserver` 区分“跟随最新”和“保留历史位置”。
+Correct approach: 记录展开高度和键盘会话；使用经过校验的 `visualViewport.height/offsetTop` 驱动根容器 CSS 变量，监听 window 与 visualViewport 的 resize/scroll、focusin/focusout，并在键盘动画窗口持续复查；失焦只表示输入结束，不能立刻结束键盘会话；用 `ResizeObserver` 区分“跟随最新”和“保留历史位置”。
 
 Related files/tests: `src/components/chat-dialog/index.vue`、`css/_mobile.scss`；`agent-browser` 402×874、402×520 键盘开合及历史位置回归。
 
 ### WebKit 的 VisualViewport 事件值需要先校验再写入布局
 
-Conclusion: iOS Safari/WKWebView 在软键盘动画中可能先派发 `resize`，但 `visualViewport.height` 暂时为 0，`offsetTop` 也可能晚于 `pageTop`；直接写入根容器会让整个聊天界面消失。
+Conclusion: iOS Safari/WKWebView 在软键盘动画中可能返回 0 高度或超出布局范围的 `offsetTop`；未经校验和夹紧就写入固定根容器，会把聊天界面压成极小高度或整体推到屏幕外。
 
 Scope: iPhone Safari、微信等 WKWebView 中的全屏聊天布局。
 
-Evidence: 用户真机截图中键盘打开后只剩背景；旧逻辑对高度 0 执行 `Math.max(1, height)`，会把根层设为 1px。回归测试在旧逻辑下明确失败；加固后实际组件注入 `height=0/offsetTop=420` 时保持 506px 高，头部和输入区仍可见。
+Evidence: 用户真机截图中键盘打开后只剩背景；第三版回归在旧逻辑下得到 `offsetTop=900` 并失败（预期上限 368）；修复后实际组件注入得到 top=368、height=506，恢复后为 top=0、height=874。
 
-Correct approach: 拒绝 0/异常小的 visual height，使用合理的 `innerHeight`、最后稳定高度或布局高度回退；只在 visual height 可信时采用视觉顶部偏移，并以 `max(offsetTop, pageTop - scrollY)`覆盖延迟字段；失焦时始终清零顶部补偿。
+Correct approach: 拒绝 0/异常小的 visual height，使用合理的 `innerHeight`、最后稳定高度或布局高度回退；仅采用可信的 `offsetTop`，并夹紧到 `0..layoutHeight-visibleHeight`；用键盘会话跨越失焦到视口恢复的过渡，scale 不为 1 时按缩放处理而不是键盘处理。
 
 Related files/tests: `viewport-utils.mjs`、`scripts/check-mobile-viewport.cjs`、`index.vue::syncChatViewport`；`npm run test:viewport`、`agent-browser` 异常属性注入。
 

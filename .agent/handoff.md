@@ -2,76 +2,73 @@
 
 Created: 2026-10-27
 Branch: `main`
-Working tree: dirty；相册时间优先级修复与状态文件尚未提交
+Working tree: dirty；第三版 iPhone/WKWebView 键盘修复已提交推送，保留一项与本次任务无关的并行相册测试改动
 
 ## Session Goal
 
-修复相册排序：优先使用拍摄时间；没有拍摄时间时使用修改时间；修改时间也不可用时才使用创建时间。
+参考 `C:\Users\zx\Desktop\fuyue-chat-source-20261023` 的键盘唤起逻辑，修复真实 iPhone 微信中键盘打开后聊天 UI 被推出可视区、失焦过渡错位和缩放误判。
 
 ## Work Completed
 
-- 在 `scripts/prepare-album.cjs` 中新增可测试的 `selectPhotoDate`，把旧的“拍摄 → 创建 → 修改”修正为“拍摄 → 修改 → 创建”。
-- manifest 新增明确的 `capturedAt`，并保留 `modifiedAt`、`createdAt`、`dateSource` 和最终有效时间 `takenAt`。
-- 生成端与 `AlbumSpace.vue` 都按同一优先级防御性排序；相同有效时间再以修改时间、创建时间、文件名稳定排序。
-- 新增 `scripts/check-album-order.cjs` 和 `npm run test:album-order`，覆盖三种时间来源、实际 manifest 回退正确性和整体顺序。
-- 重新生成 135 张照片的 manifest：48 张使用拍摄时间、87 张使用修改时间、0 张退回创建时间。
+- 对照参考工程 `apps/web/src/app.tsx` 与 `apps/web/tests/chat-viewport.test.mjs`，迁移展开高度基线和跨焦点的键盘会话状态。
+- `viewport-utils.mjs` 现在会夹紧 `offsetTop` 到 `layoutHeight-visibleHeight`，排除 pinch zoom，并保留原有的异常高度回退。
+- `index.vue` 改为监听 `focusin/focusout`，在每次同步前固定根页面滚动，并持续保存键盘会话、展开高度与视口宽度。
+- 移动端 `html/body/#app` 固定且禁止外层滚动；viewport meta 加入 `viewport-fit=cover` 和 `interactive-widget=resizes-content`。
+- 触屏输入框字号从 15px 提升到 16px，避免 iOS 聚焦自动缩放。
+- 扩展 `scripts/check-mobile-viewport.cjs`，覆盖异常超大偏移、失焦过渡和 pinch zoom。
 
 ## Current Stopping Point
 
-代码、回归测试、生产构建和真实页面 DOM 顺序均已验证完成；改动尚未提交或推送。
+代码、回归测试、实际 Vue 组件指标注入和生产构建全部通过，改动已提交推送到 `main`；等待真实 iPhone 微信复验。
 
 ## Uncommitted Changes
 
 - `package.json`
 - `scripts/prepare-album.cjs`
 - `scripts/check-album-order.cjs`
-- `src/components/chat-dialog/AlbumSpace.vue`
-- `.agent/current_state.md`
-- `.agent/lessons.md`
-- `.agent/TODO_list.md`
-- `.agent/handoff.md`
+- `scripts/capture-album-file-dates.cjs`（未跟踪）
+- `src/assets/album/README.md`
+
+以上文件是本次排查期间并行出现的相册源文件时间持久化改动，未纳入键盘提交；`npm run test:album-order` 与生产构建当前通过。
 
 ## Validation Results
 
-- 修复前只读断言：稳定失败，87/87 张无拍摄时间照片错误使用创建时间。
-- 修复前新增回归测试：稳定失败在 `file-modified` 分支，证明测试能捕获本问题。
-- `npm run album:prepare`：通过；135 张、67 张 HEIC 转换、48 张拍摄时间、87 张修改时间、0 张创建时间。
-- `npm run test:album-order`：通过；输出 `Album date priority verified: capture time -> modified time -> created time.`。
-- `npm run build`：通过；Vite 2.9.18，439 modules transformed；仅保留既有 Zepto 非 module 警告。
-- `git diff --check`：通过。
-- `agent-browser`（本项目 4174 端口）：首批 18 个 DOM 照片与 manifest 逐项一致，页面运行时错误为 0。
-- 构建生成的 `dist/` 已在验证后删除。
+- 修复前 `npm run test:viewport`：失败，异常 `offsetTop=900` 实际输出 900，预期夹紧到 368。
+- 修复后 `npm run test:viewport`：通过。
+- `npm run test:album-order`：通过。
+- `npm run build`：通过，Vite 2.9.18，439 modules transformed；仅有既存 Zepto 非 module 警告。
+- `git diff --check`：通过，仅有 Windows 换行转换提示。
+- `agent-browser` 实际组件注入：异常平移 `(368,506)`；失焦未收完 `(90,506)` 且键盘状态保持；恢复 `(0,874)`；scale=2 `(0,874)` 且不视为键盘；四阶段 `scrollY=0`。
 
 ## Failing Tests or Known Errors
 
 - 无失败测试。
 - `index.html` 仍提示 `js/zepto.min.js` 缺少 `type="module"`，不影响构建和运行。
-- 当前样本全部有有效修改时间，因此创建时间分支由纯函数回归用例覆盖，实际 manifest 中为 0 张。
+- 桌面浏览器无法等价复现微信 WKWebView 的物理键盘动画，最终结论仍需真机复验。
 
 ## Recommended Next Steps
 
-1. 审查并提交相册排序修复及状态文件。
-2. 部署后抽查一张无 EXIF 照片，确认显示位置对应其文件修改时间。
-3. 继续在真实 iPhone 微信复验既有键盘视口和信纸逐字排版工作。
+1. 等待 Cloudflare Pages 完成部署，关闭旧微信页面或使用带版本参数的 URL 重新打开。
+2. 在真实 iPhone 微信按“首次唤起 → 输入 → 失焦/收起 → 再次唤起”录屏复验；若仍异常，采集根节点四个 `data-viewport-*` 值而不再盲调。
+3. 单独审查并决定是否提交上述相册源文件时间持久化改动。
 
 ## Important Decisions
 
-- EXIF `DateTimeOriginal` 优先，`CreateDate` 作为第二拍摄元数据字段；两者都视为“拍摄时间”。
-- 文件修改时间只在没有拍摄时间时使用；文件创建时间只在前两者都不可用时使用。
-- `takenAt` 表示本张照片最终参与排序和展示的有效时间，`capturedAt`/`modifiedAt`/`createdAt` 保留来源事实。
-- 生成端和前端都实现同一优先级，避免旧或手工清单绕过修复。
+- 不再使用 `pageTop-scrollY` 作为顶部补偿；参考工程只使用经过布局边界夹紧的 `offsetTop`。
+- 键盘状态是一次会话，不等于“输入框当前有焦点”；失焦后要等可视高度恢复才结束。
+- scale 不为 1 表示页面缩放，不允许触发键盘布局。
+- 根页面不滚动，只有消息列表拥有滚动权。
 
 ## Risks and Open Questions
 
-- Windows 文件复制可能改变创建时间，所以创建时间只能作为最后回退，不能替代修改时间。
-- 不同文件系统对 birthtime/ctime 的语义有差异；当前实现优先 birthtime、再 ctime，仅在修改时间也无效时使用。
-- 真实 iPhone 微信键盘与字体渲染验证仍是独立待办，不受本次相册修复影响。
+- iOS 微信版本、Dynamic Island 状态和浏览器工具栏高度组合仍可能产生设备特有行为。
+- 若部署后仍只剩背景，需要通过临时真机调试浮层采集实时 `innerHeight/visualViewport` 数据。
 
 ## Start Here
 
 ```powershell
 git status --short --branch
-git diff -- scripts/prepare-album.cjs scripts/check-album-order.cjs src/components/chat-dialog/AlbumSpace.vue package.json
-npm run test:album-order
+npm run test:viewport
 npm run build
+git log -3 --oneline --decorate
 ```
