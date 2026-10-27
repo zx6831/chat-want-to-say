@@ -7,6 +7,7 @@
     "dev": "vite --host",
     "prebuild": "node scripts/prepare-album.cjs",
     "build": "vite build",
+    "test:album-order": "node scripts/check-album-order.cjs",
     "test:viewport": "node scripts/check-mobile-viewport.cjs",
     "prepreview": "node scripts/prepare-album.cjs",
     "preview": "vite preview"

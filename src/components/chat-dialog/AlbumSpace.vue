@@ -83,6 +83,34 @@
 <script>
 const albumBaseUrl = `${import.meta.env.BASE_URL}album-generated/`
 
+function validPhotoTime (value) {
+  const timestamp = typeof value === 'number' ? value : Date.parse(value)
+  return Number.isFinite(timestamp) ? timestamp : null
+}
+
+function photoSortTimestamp (photo) {
+  const candidates = [
+    photo.capturedAt,
+    photo.dateSource === 'metadata' ? photo.takenAt : null,
+    photo.modifiedAt,
+    photo.createdAt,
+    photo.takenAt
+  ]
+
+  for (const value of candidates) {
+    const timestamp = validPhotoTime(value)
+    if (timestamp !== null) return timestamp
+  }
+  return 0
+}
+
+function compareAlbumPhotos (left, right) {
+  return photoSortTimestamp(left) - photoSortTimestamp(right) ||
+    (validPhotoTime(left.modifiedAt) || 0) - (validPhotoTime(right.modifiedAt) || 0) ||
+    (validPhotoTime(left.createdAt) || 0) - (validPhotoTime(right.createdAt) || 0) ||
+    left.name.localeCompare(right.name, 'zh-CN', { numeric: true })
+}
+
 export default {
   emits: ['close'],
   data () {
@@ -128,9 +156,7 @@ export default {
         this.photos = (Array.isArray(manifest) ? manifest : [])
           .map(photo => ({ ...photo, src: `${albumBaseUrl}${photo.src}` }))
           .map(photo => ({ ...photo, thumbnail: photo.thumbnail ? `${albumBaseUrl}${photo.thumbnail}` : photo.src }))
-          .sort((left, right) => Date.parse(left.takenAt) - Date.parse(right.takenAt) ||
-            Date.parse(left.modifiedAt) - Date.parse(right.modifiedAt) ||
-            left.name.localeCompare(right.name, 'zh-CN', { numeric: true }))
+          .sort(compareAlbumPhotos)
         this.renderedPhotoCount = Math.min(this.photoBatchSize, this.photos.length)
       } catch (error) {
         this.albumLoadError = '相册读取失败，请重新启动或构建项目'

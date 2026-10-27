@@ -47,6 +47,21 @@ Validation: 在目标设备完整走一遍答题、图片、信件打开与关�
 
 ## Completed
 
+### [x] 修正相册排序的时间回退优先级
+
+Status: completed
+
+Scope: 相册时间选择、manifest 字段、生成端/展示端排序和自动回归测试。
+
+Acceptance criteria:
+
+- 有拍摄时间时使用 `DateTimeOriginal`/`CreateDate`。
+- 无拍摄时间时使用文件修改时间；修改时间无效时才使用创建时间。
+- 生成清单与前端页面使用相同优先级，时间升序不变。
+- 自动测试覆盖三种来源，并能检出旧清单跳过修改时间的问题。
+
+Validation: `npm run test:album-order`、`npm run album:prepare`、`npm run build` 和 `git diff --check` 均通过；135 张中 48 张使用拍摄时间、87 张使用修改时间、0 张使用创建时间；本地页面首批 18 个 DOM 项与 manifest 一致、运行时错误为 0。
+
 ### [x] 固定手机信纸每行字数并改为左对齐
 
 Status: completed
@@ -157,13 +172,13 @@ Validation: `npm run build` 通过；`agent-browser` 在 402×874 下测得信�
 
 Status: completed
 
-Scope: 图片格式检测、HEIC/HEIF 转换、EXIF 时间提取、文件创建时间回退、生成清单与前端排序。
+Scope: 图片格式检测、HEIC/HEIF 转换、EXIF 时间提取、文件时间回退、生成清单与前端排序。
 
 Acceptance criteria:
 
 - JPEG/JPG、PNG、GIF、WebP、AVIF 可直接进入相册。
 - HEIC/HEIF 自动转换为浏览器可显示的 JPEG，扩展名与实际格式不一致时仍能处理。
-- 优先按拍摄时间排序；无拍摄时间使用文件创建时间；越早越靠前。
+- 优先按拍摄时间排序；无拍摄时间使用文件修改时间，修改时间无效时使用文件创建时间；越早越靠前。
 - 生成清单引用的每个文件都存在且非空，前端无破图。
 
 Validation:
@@ -173,7 +188,7 @@ yarn album:prepare
 npm run build
 ```
 
-结果：135 张照片全部生成；67 张 HEIC 转换，48 张使用元数据时间，87 张使用文件创建时间；清单升序、源生成目录和 dist 完整性检查均通过；浏览器渲染 135 项并成功预览转换后的 HEIC。
+结果：135 张照片全部生成；67 张 HEIC 转换；原任务完成时 48 张使用元数据时间、87 张使用文件创建时间，后续已由“修正相册排序的时间回退优先级”任务调整为修改时间优先；清单升序、源生成目录和 dist 完整性检查均通过；浏览器渲染 135 项并成功预览转换后的 HEIC。
 
 ### [x] 将聊天前端改造成 refui 液态玻璃风格
 
@@ -221,7 +236,7 @@ Scope: 胶囊入口、共享元素过渡、固定目录读取、相册拼贴和�
 Acceptance criteria:
 
 - 点击顶部胶囊进入相册，返回后聊天状态仍保留。
-- 相册自动读取 `src/assets/album/` 支持的图片，优先按拍摄时间、无元数据时按文件创建时间升序排列。
+- 相册自动读取 `src/assets/album/` 支持的图片，优先按拍摄时间、无元数据时按文件修改时间、再按文件创建时间升序排列。
 - 页面不提供上传或删除入口，不使用相册 `localStorage`。
 - 390×844 无横向溢出，低动态模式禁用非必要动画。
 

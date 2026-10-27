@@ -2,11 +2,11 @@
 
 Last updated: 2026-10-27
 Current branch: `main`
-Current phase: 第二版 iPhone/WKWebView 视口防护已推送；手机信纸固定字数左对齐已完成验证、尚未提交
+Current phase: 相册时间优先级修复已完成验证、尚未提交；第二版 iPhone/WKWebView 视口防护与手机信纸排版已在 `main`
 
 ## Current Objective
 
-等待 Cloudflare 部署 `85e4a82` 后，在真实 iPhone 微信内置浏览器复验键盘动画和信纸逐字排版；本地保留已验证的信纸固定行宽改动。
+确保相册严格按照“拍摄时间 → 修改时间 → 创建时间”选择排序日期；等待真实 iPhone 微信内置浏览器复验键盘动画和信纸逐字排版。
 
 ## Completed
 
@@ -17,9 +17,9 @@ Current phase: 第二版 iPhone/WKWebView 视口防护已推送；手机信纸�
 - 头像在浏览器端自动居中裁成 256×256 JPEG，并保存到 `localStorage`。
 - 顶部中间胶囊只显示当前人名，点击可进入标题为“我们俩”的相册；标题下方灰色说明已移除。
 - 相册预处理器会扫描 `src/assets/album/`，识别 JPEG、PNG、GIF、WebP、AVIF、HEIC/HEIF；HEIC/HEIF 在启动或构建前转为 JPEG。
-- 相册优先读取 EXIF `DateTimeOriginal`，其次读取 `CreateDate`；均不存在时使用文件创建时间。所有照片按时间升序显示，并以修改时间、文件名稳定打破并列。
+- 相册优先读取 EXIF `DateTimeOriginal`，其次读取 `CreateDate`；均不存在时使用文件修改时间，修改时间也不存在时才使用文件创建时间。所有照片按选中的有效时间升序显示，并以修改时间、创建时间、文件名稳定打破并列。
 - 文件内容会通过魔数识别，扩展名与真实内容不一致的图片也能按实际格式处理。
-- 当前相册共 135 张：67 张 HEIC 转换、48 张使用元数据时间、87 张使用文件创建时间回退。MOV/MP4 不进入图片相册。
+- 当前相册共 135 张：67 张 HEIC 转换、48 张使用拍摄时间、87 张使用文件修改时间、0 张退回文件创建时间。MOV/MP4 不进入图片相册。
 - 相册列表使用构建期生成的 720px WebP 缩略图，首批只渲染 18 张；滚动接近底部时由 `IntersectionObserver` 每批追加 18 张，单图预览仍读取完整兼容图。
 - 相册每 6 张形成一组：奇数组左侧 2 张大图、右侧 4 张小图，偶数组左右镜像；135 张照片的最后 3 张自动收成半组高度。
 - 全局白色雾光固定在 `#app` 下方；相册容器、画廊、照片和原始图片建立明确层级，图片保持不透明、无滤镜和普通混合模式。
@@ -38,15 +38,15 @@ Current phase: 第二版 iPhone/WKWebView 视口防护已推送；手机信纸�
 
 ## In Progress
 
-- `letter/content.vue` 的手机端按字数换行与左对齐已完成构建和浏览器动态坐标验证，但尚未提交或推送。
+- 相册时间优先级修复及其回归脚本已完成验证，但尚未提交或推送。
 - 第二版键盘修复提交 `85e4a82` 已推送 `origin/main` 并通过自动化异常值注入，仍待真实 iPhone 微信复验。
 
 ## Architecture and Key Decisions
 
 - `ChatDialog` 保持消息状态机所有权，仅管理当前视图、头像状态和设置面板开关。
 - `AvatarSettings.vue` 管理双方头像选择、裁切、保存和恢复默认。
-- `scripts/prepare-album.cjs` 读取源图、提取时间、转换 HEIC，同时用 Sharp 为每张照片生成最长边 720px、质量 72 的 WebP 缩略图，并生成按时间排序的 `public/album-generated/manifest.json`。
-- `AlbumSpace.vue` 读取生成清单，防御性再次按拍摄时间、修改时间和文件名排序；网格消费缩略图并分批挂载 DOM，预览消费完整兼容图。
+- `scripts/prepare-album.cjs` 读取源图、提取拍摄/修改/创建时间、转换 HEIC，同时用 Sharp 为每张照片生成最长边 720px、质量 72 的 WebP 缩略图，并生成按优先级时间排序的 `public/album-generated/manifest.json`。
+- `AlbumSpace.vue` 读取生成清单，防御性再次按拍摄时间、修改时间、创建时间和文件名排序；网格消费缩略图并分批挂载 DOM，预览消费完整兼容图。
 - `AlbumSpace.vue` 将可见照片每 6 张切为一组，用 3 列 × 4 行网格安排 2 张跨 2 列/2 行的大图与 4 张单格小图；组索引决定左右镜像，尾组 1–3 张只保留 2 行。
 - `body::before/::after` 是纯背景光效，层级为 0；`#app` 层级为 1，避免全局雾光在照片上方合成。
 - `letter/content.vue` 使用“桌面 A5、手机竖屏 402:874”的响应式纸张比例和内部 flex 滚动区；透明插画位于 `public/letter/lamb-watercolor.png`，不依赖外部网络。
@@ -62,9 +62,10 @@ Current phase: 第二版 iPhone/WKWebView 视口防护已推送；手机信纸�
 
 ## Validation Status
 
-- `yarn album:prepare`：通过；生成 135 张照片，67 张 HEIC 转换，48 张元数据时间，87 张文件时间回退。
-- 相册清单单调性检查：通过，全部 `takenAt` 从早到晚；生成目录清单 135 项、图片 135 个、缺失 0、空文件 0。
-- `npm run build`：通过，Vite 2.9.18，438 modules transformed；构建产物相册清单 135 项、完整图与缩略图缺失 0；保留现有 Zepto 非 module 警告。
+- `npm run album:prepare`：通过；生成 135 张照片，67 张 HEIC 转换，48 张拍摄时间、87 张修改时间、0 张创建时间回退。
+- `npm run test:album-order`：通过；覆盖拍摄、修改、创建三段优先级，并检查实际 manifest 中非拍摄条目没有跳过修改时间及清单整体单调性。
+- 相册页面级顺序检查：通过；4174 本地页面首批 18 个 DOM 照片与 manifest 逐项一致，页面运行时错误为 0。
+- `npm run build`：通过，Vite 2.9.18，439 modules transformed；保留现有 Zepto 非 module 警告。
 - 缩略图完整性：135 个 WebP，总计 3.94MB、平均 29.9KB、最大 73.7KB；`dist/` 共 285 个文件、249.93MB。
 - `agent-browser` 相册性能验收：优化前进入页面立即挂载 135 个照片节点，已加载图片最大自然宽度 3961px；优化后首批只有 18 个节点，列表图最大 720px，滚动后节点按批次增至 36；点击照片后预览使用 1080×1440 的完整 JPEG，不误用缩略图。
 - 水彩小羊信纸：`npm run build` 通过，438 modules transformed；iPhone 16 Pro 逻辑视口 402×874 下卡片为 382×830.52、比例 0.459955，与 402:874 一致，左右边距 10px、上下边距约 21.7px且无横向溢出；1280×900 桌面为 460×652.69，844×390 横屏为 252.31×358，两者保持 A5 比例。
@@ -109,6 +110,7 @@ Current phase: 第二版 iPhone/WKWebView 视口防护已推送；手机信纸�
 - `src/components/chat-dialog/letter/detail.vue`
 - `public/letter/lamb-watercolor.png`
 - `scripts/prepare-album.cjs`
+- `scripts/check-album-order.cjs`
 - `package.json`
 - `yarn.lock`
 - `src/components/chat-dialog/AvatarSettings.vue`

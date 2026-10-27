@@ -150,15 +150,15 @@ Related files/tests: `scripts/prepare-album.cjs::detectImageFormat`；相册生�
 
 ### 相册时间排序必须在生成端和展示端使用同一规则
 
-Conclusion: 相册应优先使用 EXIF `DateTimeOriginal`，其次 `CreateDate`，无元数据时使用文件创建时间；时间从早到晚，完全相同时以修改时间和文件名稳定排序。
+Conclusion: 相册应优先使用 EXIF `DateTimeOriginal`，其次 `CreateDate`；没有拍摄时间时先使用文件修改时间，修改时间无效时才使用文件创建时间。时间从早到晚，完全相同时以修改时间、创建时间和文件名稳定排序。
 
 Scope: 相册清单生成和前端渲染。
 
-Evidence: 135 项 manifest 的 `takenAt` 单调升序检查通过；前端首项与 manifest 最早照片一致。
+Evidence: 修复前的清单断言稳定检出 87/87 个无拍摄时间条目错误使用创建时间；修复后 135 项 manifest 中 48 张使用拍摄时间、87 张使用修改时间、0 张使用创建时间，优先级和单调性测试通过，前端首批 18 个 DOM 项与 manifest 逐项一致。
 
-Correct approach: 生成端写入 ISO 时间和 `dateSource`，前端按相同字段防御性排序，不使用文件名推断拍摄时间。
+Correct approach: 生成端分别写入 `capturedAt`、`modifiedAt`、`createdAt` 和 `dateSource`，用统一选择函数生成有效 `takenAt`；前端按相同优先级防御性排序，不使用文件名推断拍摄时间。保留 `npm run test:album-order` 覆盖三种回退分支和实际清单。
 
-Related files/tests: `scripts/prepare-album.cjs::comparePhotos`、`AlbumSpace.vue::loadAlbum`；清单单调性脚本、`agent-browser` DOM 顺序检查。
+Related files/tests: `scripts/prepare-album.cjs::selectPhotoDate/comparePhotos`、`scripts/check-album-order.cjs`、`AlbumSpace.vue::loadAlbum`；`npm run test:album-order`、`agent-browser` DOM 顺序检查。
 
 ### 图片原生懒加载不能替代缩略图和 DOM 分批挂载
 
