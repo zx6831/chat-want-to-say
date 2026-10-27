@@ -7,6 +7,7 @@ const sharp = require('sharp')
 
 const projectRoot = path.resolve(__dirname, '..')
 const sourceDir = path.join(projectRoot, 'src', 'assets', 'album')
+const fileDatesPath = path.join(projectRoot, 'src', 'assets', 'album-file-dates.json')
 const outputDir = path.join(projectRoot, 'public', 'album-generated')
 const manifestPath = path.join(outputDir, 'manifest.json')
 const processorVersion = 'album-v2-thumb-720-webp72'
@@ -23,8 +24,9 @@ async function main () {
   const sourceNames = entries
     .filter(entry => entry.isFile() && supportedExtensions.has(path.extname(entry.name).toLowerCase()))
     .map(entry => entry.name)
+  const sourceFileDates = await readSourceFileDates(sourceNames)
 
-  const photos = await mapWithConcurrency(sourceNames, 2, preparePhoto)
+  const photos = await mapWithConcurrency(sourceNames, 2, name => preparePhoto(name, sourceFileDates[name]))
   photos.sort(comparePhotos)
 
   const keepFiles = new Set([
@@ -50,16 +52,19 @@ async function main () {
   console.log(`Album prepared: ${photos.length} photos (${convertedCount} HEIC converted, ${metadataCount} capture dates, ${modifiedCount} modified dates, ${createdCount} created dates).`)
 }
 
-async function preparePhoto (name) {
+async function preparePhoto (name, preservedFileDates) {
   const sourcePath = path.join(sourceDir, name)
   const extension = path.extname(name).toLowerCase()
   const detectedFormat = await detectImageFormat(sourcePath, extension)
   const stats = await fs.stat(sourcePath)
+  if (preservedFileDates.size !== stats.size) {
+    throw new Error(`${name} changed after its file dates were captured. Run npm run album:capture-dates and commit src/assets/album-file-dates.json.`)
+  }
   const metadataDate = await readCaptureDate(sourcePath)
-  const { takenAtMs, dateSource, createdAtMs, modifiedAtMs } = selectPhotoDate(metadataDate, stats)
+  const { takenAtMs, dateSource, createdAtMs, modifiedAtMs } = selectPhotoDate(metadataDate, stats, preservedFileDates)
   const fingerprint = crypto
     .createHash('sha1')
-    .update(`${processorVersion}\0${name}\0${stats.size}\0${stats.mtimeMs}`)
+    .update(`${processorVersion}\0${name}\0${stats.size}\0${modifiedAtMs || createdAtMs || 0}`)
     .digest('hex')
     .slice(0, 16)
   const needsHeicConversion = heicExtensions.has(detectedFormat)
@@ -169,13 +174,39 @@ function validTimestamp (value) {
   return Number.isFinite(value) && value > 0 ? value : null
 }
 
-function selectPhotoDate (metadataDate, stats) {
-  const createdAtMs = validTimestamp(stats.birthtimeMs) || validTimestamp(stats.ctimeMs)
-  const modifiedAtMs = validTimestamp(stats.mtimeMs)
+function selectPhotoDate (metadataDate, stats, preservedFileDates = null) {
+  const hasPreservedDates = preservedFileDates && typeof preservedFileDates === 'object'
+  const createdAtMs = hasPreservedDates
+    ? validDateValue(preservedFileDates.createdAt)
+    : (validTimestamp(stats.birthtimeMs) || validTimestamp(stats.ctimeMs))
+  const modifiedAtMs = hasPreservedDates
+    ? validDateValue(preservedFileDates.modifiedAt)
+    : validTimestamp(stats.mtimeMs)
   const takenAtMs = metadataDate || modifiedAtMs || createdAtMs
   const dateSource = metadataDate ? 'metadata' : (modifiedAtMs ? 'file-modified' : 'file-created')
 
   return { takenAtMs, dateSource, createdAtMs, modifiedAtMs }
+}
+
+async function readSourceFileDates (sourceNames) {
+  let index
+  try {
+    index = JSON.parse(await fs.readFile(fileDatesPath, 'utf8'))
+  } catch (error) {
+    throw new Error(`Album file-date index is missing or invalid. Run npm run album:capture-dates before building. (${error.message})`)
+  }
+
+  const photos = index && index.version === 1 && index.photos
+  if (!photos || typeof photos !== 'object') {
+    throw new Error('Album file-date index has an unsupported format. Run npm run album:capture-dates before building.')
+  }
+
+  const missing = sourceNames.filter(name => !photos[name])
+  if (missing.length) {
+    throw new Error(`Album file-date index is missing ${missing.length} photo(s): ${missing.slice(0, 3).join(', ')}. Run npm run album:capture-dates and commit src/assets/album-file-dates.json.`)
+  }
+
+  return photos
 }
 
 function comparePhotos (left, right) {

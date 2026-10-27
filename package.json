@@ -2,6 +2,7 @@
   "name": "chat-want-to-say",
   "version": "0.0.0",
   "scripts": {
+    "album:capture-dates": "node scripts/capture-album-file-dates.cjs",
     "album:prepare": "node scripts/prepare-album.cjs",
     "predev": "node scripts/prepare-album.cjs",
     "dev": "vite --host",
