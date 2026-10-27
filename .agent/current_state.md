@@ -2,11 +2,11 @@
 
 Last updated: 2026-10-27
 Current branch: `main`
-Current phase: 前端功能、相册性能、移动端统一背景和键盘视口修复已推送 GitHub main
+Current phase: 前端功能、相册性能、移动端统一背景和键盘视口修复已推送；六图交错相册已完成并验证、尚未提交
 
 ## Current Objective
 
-在真实 iPhone 微信内置浏览器验收键盘动画、安全区和滚动手感；保留并行中的相册拼贴调整。
+在真实 iPhone 微信内置浏览器验收键盘动画、安全区、相册底部图层与滚动手感；本地保留已验证的六图交错相册改动。
 
 ## Completed
 
@@ -21,6 +21,8 @@ Current phase: 前端功能、相册性能、移动端统一背景和键盘视�
 - 文件内容会通过魔数识别，扩展名与真实内容不一致的图片也能按实际格式处理。
 - 当前相册共 135 张：67 张 HEIC 转换、48 张使用元数据时间、87 张使用文件创建时间回退。MOV/MP4 不进入图片相册。
 - 相册列表使用构建期生成的 720px WebP 缩略图，首批只渲染 18 张；滚动接近底部时由 `IntersectionObserver` 每批追加 18 张，单图预览仍读取完整兼容图。
+- 相册每 6 张形成一组：奇数组左侧 2 张大图、右侧 4 张小图，偶数组左右镜像；135 张照片的最后 3 张自动收成半组高度。
+- 全局白色雾光固定在 `#app` 下方；相册容器、画廊、照片和原始图片建立明确层级，图片保持不透明、无滤镜和普通混合模式。
 - 用户输入框不再显示矩形 `focus-visible` 轮廓；进入 `userInput` 且输入为空时，整个胶囊外围显示连续彩色细环和同色模糊外辉光，开始输入后自动收敛。
 - 信件内容页已改为米白纸张：桌面与横屏保留 148:210 A5 比例，手机竖屏采用 iPhone 16 Pro 的 402:874 比例并接近铺满视口；顶部为透明水彩小羊草地插画，正文为楷体大留白排版，底部保留 `Dancing sunbeams` 花体落款。
 - 信件原有标题与逐段 Typed.js 打字、图片段落、纸内滚动、完成返回和右上关闭交互保持不变；粉色徽章、副标题、横线纸和悬浮回顶按钮已移除。
@@ -33,7 +35,7 @@ Current phase: 前端功能、相册性能、移动端统一背景和键盘视�
 
 ## In Progress
 
-- 工作区存在用户并行编辑的 `AlbumSpace.vue` 拼贴布局与 `_global.scss` 层级调整；未包含在移动端修复提交中，需继续保留，当前组合工作区尚未重新构建验证。
+- `AlbumSpace.vue` 六图交错布局与 `_global.scss` 雾光层级调整已完成组合构建和浏览器验证，但尚未提交或推送。
 
 ## Architecture and Key Decisions
 
@@ -41,6 +43,8 @@ Current phase: 前端功能、相册性能、移动端统一背景和键盘视�
 - `AvatarSettings.vue` 管理双方头像选择、裁切、保存和恢复默认。
 - `scripts/prepare-album.cjs` 读取源图、提取时间、转换 HEIC，同时用 Sharp 为每张照片生成最长边 720px、质量 72 的 WebP 缩略图，并生成按时间排序的 `public/album-generated/manifest.json`。
 - `AlbumSpace.vue` 读取生成清单，防御性再次按拍摄时间、修改时间和文件名排序；网格消费缩略图并分批挂载 DOM，预览消费完整兼容图。
+- `AlbumSpace.vue` 将可见照片每 6 张切为一组，用 3 列 × 4 行网格安排 2 张跨 2 列/2 行的大图与 4 张单格小图；组索引决定左右镜像，尾组 1–3 张只保留 2 行。
+- `body::before/::after` 是纯背景光效，层级为 0；`#app` 层级为 1，避免全局雾光在照片上方合成。
 - `letter/content.vue` 使用“桌面 A5、手机竖屏 402:874”的响应式纸张比例和内部 flex 滚动区；透明插画位于 `public/letter/lamb-watercolor.png`，不依赖外部网络。
 - `image-utils.js` 统一图片读取、Canvas 压缩和 JSON 本地存储。
 - 存储键：`chat-want-to-say:avatars:v1`；相册不再使用浏览器存储。
@@ -71,6 +75,9 @@ Current phase: 前端功能、相册性能、移动端统一背景和键盘视�
 - 键盘视口回归：模拟 874→520→874 高度时，聊天根区域分别精确为 520/874px，输入栏左右边距始终 14px，底部对齐可视视口，`scrollY` 始终为 0；最新消息距离底部为 0。
 - 历史阅读回归：添加浏览器临时长内容后将 `scrollTop` 设为 140，视口变化后仍保持 140，没有被强制拉到底部。
 - 移动端修复后 `npm run build`：通过，Vite 2.9.18，438 modules transformed；仅保留现有 Zepto 非 module 警告。
+- 六图相册与移动端修复组合后的 `npm run build`：通过，Vite 2.9.18，438 modules transformed；`git diff --check` 通过，仅保留换行提示和既有 Zepto 警告。
+- `agent-browser` 390×844：首组大图 238.7×203、小图 115.3×97.5，左大右小；第二组同尺寸左右镜像；`scrollWidth=390`。
+- 相册滚动到底后共渲染 135 张、23 组、破图 0；尾组 3 张高度由 414px 收为 203px，底部间距 28px。照片计算样式为 `opacity: 1`、`filter: none`、`mix-blend-mode: normal`。
 
 ## Known Problems
 
@@ -102,6 +109,7 @@ Current phase: 前端功能、相册性能、移动端统一背景和键盘视�
 - `src/components/chat-dialog/css/_mobile.scss`
 - `src/components/chat-dialog/css/_mobile.msg.scss`
 - `src/components/chat-dialog/css/_mobile.body.scss`
+- `src/components/chat-dialog/css/_global.scss`
 - `public/options/preview/chat.json`
 - `refui/fuyue-chat-source-20261023/fuyue-chat-source-20261023/apps/web/src/ui/view-transitions.css`
 - `refui/fuyue-chat-source-20261023/fuyue-chat-source-20261023/apps/web/src/ui/relationship-home.css`

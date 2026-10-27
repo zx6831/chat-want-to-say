@@ -21,17 +21,30 @@
 
       <div v-else-if="photos.length" class="album-gallery">
         <div class="album-grid">
-          <button
-            v-for="(photo, index) in visiblePhotos"
-            :key="photo.id"
-            class="album-photo"
-            type="button"
-            :aria-label="`查看照片 ${index + 1}`"
-            @click="selectedPhoto = photo"
+          <div
+            v-for="(group, groupIndex) in visiblePhotoGroups"
+            :key="`album-group-${groupIndex}`"
+            class="album-cluster"
+            :class="{
+              'album-cluster--reverse': groupIndex % 2 === 1,
+              'album-cluster--short': group.length <= photosPerGroup / 2
+            }"
           >
-            <img :src="photo.thumbnail || photo.src" :alt="photo.name || `相册照片 ${index + 1}`" loading="lazy" decoding="async" />
-            <span><b>{{ String(index + 1).padStart(2, '0') }}</b><small>{{ formatPhotoDate(photo.takenAt) }}</small></span>
-          </button>
+            <button
+              v-for="(photo, photoIndex) in group"
+              :key="photo.id"
+              class="album-photo"
+              type="button"
+              :aria-label="`查看照片 ${groupIndex * photosPerGroup + photoIndex + 1}`"
+              @click="selectedPhoto = photo"
+            >
+              <img :src="photo.thumbnail || photo.src" :alt="photo.name || `相册照片 ${groupIndex * photosPerGroup + photoIndex + 1}`" loading="lazy" decoding="async" />
+              <span>
+                <b>{{ String(groupIndex * photosPerGroup + photoIndex + 1).padStart(2, '0') }}</b>
+                <small>{{ formatPhotoDate(photo.takenAt) }}</small>
+              </span>
+            </button>
+          </div>
         </div>
         <div v-if="hasMorePhotos" ref="loadMoreSentinel" class="album-load-sentinel" aria-hidden="true">
           <span></span><span></span><span></span>
@@ -78,6 +91,7 @@ export default {
       selectedPhoto: null,
       albumLoading: true,
       albumLoadError: '',
+      photosPerGroup: 6,
       renderedPhotoCount: 18,
       photoBatchSize: 18,
       loadMoreObserver: null
@@ -86,6 +100,14 @@ export default {
   computed: {
     visiblePhotos () {
       return this.photos.slice(0, this.renderedPhotoCount)
+    },
+    visiblePhotoGroups () {
+      return this.visiblePhotos.reduce((groups, photo, index) => {
+        const groupIndex = Math.floor(index / this.photosPerGroup)
+        if (!groups[groupIndex]) groups[groupIndex] = []
+        groups[groupIndex].push(photo)
+        return groups
+      }, [])
     },
     hasMorePhotos () {
       return this.renderedPhotoCount < this.photos.length
@@ -160,6 +182,7 @@ export default {
 .album-space {
   position: absolute;
   z-index: 40;
+  isolation: isolate;
   inset: 0;
   overflow: hidden;
   color: #25314b;
@@ -172,6 +195,7 @@ export default {
 
 .album-aurora {
   position: absolute;
+  z-index: 0;
   inset: 82px -70px auto;
   height: 260px;
   pointer-events: none;
@@ -231,7 +255,7 @@ export default {
 
 .album-content {
   position: absolute;
-  z-index: 1;
+  z-index: 3;
   inset: 104px 0 0;
   overflow: auto;
   padding: 12px 14px 28px;
@@ -239,27 +263,48 @@ export default {
   scrollbar-width: none;
 }
 .album-content::-webkit-scrollbar { display: none; }
-.album-gallery { min-height: 100%; }
-.album-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); grid-auto-rows: 112px; gap: 8px; }
+.album-gallery { position: relative; z-index: 2; min-height: 100%; isolation: isolate; }
+.album-grid { display: grid; gap: 10px; }
+.album-cluster {
+  display: grid;
+  grid-template-columns: repeat(3,minmax(0,1fr));
+  grid-template-rows: repeat(4,min(25vw,106px));
+  gap: 8px;
+}
+.album-cluster--short { grid-template-rows: repeat(2,min(25vw,106px)); }
+
+.album-cluster:not(.album-cluster--reverse) .album-photo:nth-child(1) { grid-column: 1 / span 2; grid-row: 1 / span 2; }
+.album-cluster:not(.album-cluster--reverse) .album-photo:nth-child(2) { grid-column: 3; grid-row: 1; }
+.album-cluster:not(.album-cluster--reverse) .album-photo:nth-child(3) { grid-column: 3; grid-row: 2; }
+.album-cluster:not(.album-cluster--reverse) .album-photo:nth-child(4) { grid-column: 1 / span 2; grid-row: 3 / span 2; }
+.album-cluster:not(.album-cluster--reverse) .album-photo:nth-child(5) { grid-column: 3; grid-row: 3; }
+.album-cluster:not(.album-cluster--reverse) .album-photo:nth-child(6) { grid-column: 3; grid-row: 4; }
+
+.album-cluster--reverse .album-photo:nth-child(1) { grid-column: 1; grid-row: 1; }
+.album-cluster--reverse .album-photo:nth-child(2) { grid-column: 2 / span 2; grid-row: 1 / span 2; }
+.album-cluster--reverse .album-photo:nth-child(3) { grid-column: 1; grid-row: 2; }
+.album-cluster--reverse .album-photo:nth-child(4) { grid-column: 1; grid-row: 3; }
+.album-cluster--reverse .album-photo:nth-child(5) { grid-column: 2 / span 2; grid-row: 3 / span 2; }
+.album-cluster--reverse .album-photo:nth-child(6) { grid-column: 1; grid-row: 4; }
 
 .album-photo {
   position: relative;
+  z-index: 2;
+  isolation: isolate;
   min-width: 0;
   padding: 0;
   overflow: hidden;
   color: white;
   border: 1px solid rgba(255,255,255,.72);
   border-radius: 18px;
-  background: rgba(255,255,255,.34);
+  background: #eef0f6;
   box-shadow: 0 9px 24px rgba(62,54,102,.1), inset 0 1px 0 rgba(255,255,255,.72);
   cursor: zoom-in;
   contain: layout paint;
 }
-.album-photo:nth-child(7n + 1) { grid-column: span 2; grid-row: span 2; }
-.album-photo:nth-child(7n + 4) { grid-column: span 2; }
-.album-photo img { width: 100%; height: 100%; display: block; object-fit: cover; transition: transform .35s cubic-bezier(.2,.8,.2,1); }
+.album-photo img { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; display: block; object-fit: cover; opacity: 1; filter: none; mix-blend-mode: normal; transition: transform .35s cubic-bezier(.2,.8,.2,1); }
 .album-photo:hover img { transform: scale(1.035); }
-.album-photo > span { position: absolute; inset: auto 0 0; display: flex; align-items: end; justify-content: space-between; gap: 8px; padding: 22px 9px 8px; background: linear-gradient(transparent,rgba(29,25,47,.54)); }
+.album-photo > span { position: absolute; z-index: 2; inset: auto 0 0; display: flex; align-items: end; justify-content: space-between; gap: 8px; padding: 22px 9px 8px; background: linear-gradient(transparent,rgba(29,25,47,.54)); }
 .album-photo b { font-size: 9px; letter-spacing: .12em; }
 .album-photo small { font-size: 8px; }
 .album-load-sentinel { display: flex; justify-content: center; gap: 5px; min-height: 54px; padding-top: 20px; box-sizing: border-box; }
@@ -316,6 +361,6 @@ export default {
 
 @keyframes album-fallback-in { from { opacity: .6; transform: translateX(18px); } }
 @keyframes album-load-pulse { to { opacity: .25; transform: translateY(-3px); } }
-@media (max-width: 360px) { .album-header { padding-inline: 10px; gap: 7px; }.album-grid { grid-auto-rows: 98px; gap: 7px; }.album-hero { padding-inline: 11px; }.album-content { padding-inline: 10px; } }
+@media (max-width: 360px) { .album-header { padding-inline: 10px; gap: 7px; }.album-grid { gap: 8px; }.album-cluster { gap: 7px; }.album-hero { padding-inline: 11px; }.album-content { padding-inline: 10px; } }
 @media (prefers-reduced-motion: reduce) { .album-space,.album-photo img,.album-load-sentinel span,.photo-preview-enter-active,.photo-preview-leave-active,.photo-preview-enter-active figure,.photo-preview-leave-active figure { animation: none; transition: none; } }
 </style>

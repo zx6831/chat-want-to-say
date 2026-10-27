@@ -91,6 +91,14 @@ body::after {
     border-radius: 50%;
     filter: blur(18px);
     opacity: .7;
+    z-index: 0;
+}
+
+#app {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
 }
 
 body::before {

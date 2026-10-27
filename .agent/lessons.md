@@ -195,3 +195,27 @@ Evidence: 模拟可视高度 874→520→874 后，根容器与输入栏精确�
 Correct approach: 使用 `visualViewport.height/offsetTop` 驱动根容器 CSS 变量，监听 window 与 visualViewport 的 resize/scroll、focus/blur，并在键盘动画窗口持续复位异常根滚动；用 `ResizeObserver` 区分“跟随最新”和“保留历史位置”。
 
 Related files/tests: `src/components/chat-dialog/index.vue`、`css/_mobile.scss`；`agent-browser` 402×874、402×520 键盘开合及历史位置回归。
+
+### 六图交错拼贴应按组建模而不是依赖全局 nth-child
+
+Conclusion: “两张大图 + 四张小图、下一轮左右镜像”是六张照片共同决定的结构，应先把可见照片切成六图组，再让组索引控制镜像；全局周期选择器难以正确表达左右翻转和尾组收缩。
+
+Scope: 相册列表拼贴、分批挂载与不满六张的最后一组。
+
+Evidence: 390×844 浏览器实测首组左侧大图为 238.7×203、右侧小图为 115.3×97.5；第二组左右镜像；135 张照片形成 23 组，最后 3 张由完整 414px 组高自动收为 203px。
+
+Correct approach: `visiblePhotoGroups` 每 6 张切组；每批仍追加 18 张以保持 3 个完整组；组内按照片序号显式落到 3 列 × 4 行网格，尾组 1–3 张使用两行高度。
+
+Related files/tests: `src/components/chat-dialog/AlbumSpace.vue`；`agent-browser` 组几何、全量滚动和尾组高度验证。
+
+### 页面级光效必须低于应用根层才能保证原图显示
+
+Conclusion: `body::before/::after` 这类固定伪元素即使只是背景装饰，也需要显式放在应用根节点下面；否则后绘制的半透明白色光效可能在相册图片上方合成，造成底部照片发白。
+
+Scope: 全局背景光斑、相册图片和其他需要保持原始色彩的媒体。
+
+Evidence: 调整后计算层级为全局光效 z=0、`#app` z=1、相册内容 z=3、照片 z=2、图片 z=1；图片为 `opacity: 1`、`filter: none`、`mix-blend-mode: normal`，135 张全量底部截图无白雾覆盖。
+
+Correct approach: 为 `#app` 建立高于全局装饰的层级；在相册内部使用隔离 stacking context，并让图片自身无透明度、滤镜或混合模式。
+
+Related files/tests: `src/components/chat-dialog/css/_global.scss`、`src/components/chat-dialog/AlbumSpace.vue`；`agent-browser` 层级计算和相册底部截图。
