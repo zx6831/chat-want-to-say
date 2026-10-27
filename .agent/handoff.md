@@ -27,6 +27,7 @@ Working tree: dirty；第三版 iPhone/WKWebView 键盘修复已提交推送，�
 - `scripts/prepare-album.cjs`
 - `scripts/check-album-order.cjs`
 - `scripts/capture-album-file-dates.cjs`（未跟踪）
+- `src/assets/album-file-dates.json`（未跟踪）
 - `src/assets/album/README.md`
 
 以上文件是本次排查期间并行出现的相册源文件时间持久化改动，未纳入键盘提交；`npm run test:album-order` 与生产构建当前通过。

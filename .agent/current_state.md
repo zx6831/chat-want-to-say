@@ -40,7 +40,7 @@ Current phase: 第三版 iPhone/WKWebView 键盘视口修复已完成验证并�
 ## In Progress
 
 - 第三版键盘修复已通过纯函数回归、实际 Vue 组件异常指标注入和生产构建，并已推送；等待真实 iPhone 微信复验。
-- 本次排查期间并行出现一组未提交的相册源文件时间持久化改动（`package.json`、`scripts/prepare-album.cjs`、`scripts/check-album-order.cjs`、`scripts/capture-album-file-dates.cjs`、`src/assets/album/README.md`）；它们未纳入键盘提交，当前相册测试与构建通过。
+- 本次排查期间并行出现一组未提交的相册源文件时间持久化改动（`package.json`、`scripts/prepare-album.cjs`、`scripts/check-album-order.cjs`、`scripts/capture-album-file-dates.cjs`、`src/assets/album-file-dates.json`、`src/assets/album/README.md`）；它们未纳入键盘提交，当前相册测试与构建通过。
 
 ## Architecture and Key Decisions
 
