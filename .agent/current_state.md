@@ -2,11 +2,11 @@
 
 Last updated: 2026-10-27
 Current branch: `main`
-Current phase: 第二版 iPhone/WKWebView 异常 VisualViewport 防护已推送 main，等待真实 iPhone 微信复验
+Current phase: 第二版 iPhone/WKWebView 视口防护已推送；手机信纸固定字数左对齐已完成验证、尚未提交
 
 ## Current Objective
 
-等待 Cloudflare 部署 `85e4a82` 后，在真实 iPhone 微信内置浏览器复验键盘动画；保留本地并行的信纸自动换行改动。
+等待 Cloudflare 部署 `85e4a82` 后，在真实 iPhone 微信内置浏览器复验键盘动画和信纸逐字排版；本地保留已验证的信纸固定行宽改动。
 
 ## Completed
 
@@ -34,10 +34,11 @@ Current phase: 第二版 iPhone/WKWebView 异常 VisualViewport 防护已推送 
 - 消息容器使用 `ResizeObserver` 响应可用高度变化：位于底部时跟随最新消息，阅读历史时保留原 `scrollTop`。
 - 移动视口解析器会拒绝 `visualViewport.height=0` 或异常小值，依次回退到可信 `innerHeight`、最后稳定高度或布局高度，防止聊天根层被压成 1px。
 - 顶部补偿同时参考 `offsetTop` 与 `pageTop - scrollY`；输入失焦时强制清零 WebKit 残留偏移。
+- 手机竖屏信纸正文固定为每行 20 个字符单元，首行因两格缩进显示 18 字；正文使用硬换行和左对齐，后续逐字出现不会再改变上一行字距或断行。
 
 ## In Progress
 
-- `letter/content.vue` 存在用户并行的手机端按字数换行与段落排版调整；已与键盘修复组合构建通过，但不会包含在键盘提交中，需继续保留。
+- `letter/content.vue` 的手机端按字数换行与左对齐已完成构建和浏览器动态坐标验证，但尚未提交或推送。
 - 第二版键盘修复提交 `85e4a82` 已推送 `origin/main` 并通过自动化异常值注入，仍待真实 iPhone 微信复验。
 
 ## Architecture and Key Decisions
@@ -49,6 +50,7 @@ Current phase: 第二版 iPhone/WKWebView 异常 VisualViewport 防护已推送 
 - `AlbumSpace.vue` 将可见照片每 6 张切为一组，用 3 列 × 4 行网格安排 2 张跨 2 列/2 行的大图与 4 张单格小图；组索引决定左右镜像，尾组 1–3 张只保留 2 行。
 - `body::before/::after` 是纯背景光效，层级为 0；`#app` 层级为 1，避免全局雾光在照片上方合成。
 - `letter/content.vue` 使用“桌面 A5、手机竖屏 402:874”的响应式纸张比例和内部 flex 滚动区；透明插画位于 `public/letter/lamb-watercolor.png`，不依赖外部网络。
+- 手机竖屏正文先由 `formatParagraphText` 忽略 Typed.js 的 `^数字` 停顿标记，再按首行 18 字、后续 20 字写入硬换行；CSS 以 20em 行宽、5cqi 自适应字号、`pre-wrap` 和左对齐显示。
 - `image-utils.js` 统一图片读取、Canvas 压缩和 JSON 本地存储。
 - 存储键：`chat-want-to-say:avatars:v1`；相册不再使用浏览器存储。
 - 默认头像由 `DEFAULT_AVATARS` 提供；本地自定义值优先，空值或无存储时回退到项目默认图片。
@@ -85,12 +87,14 @@ Current phase: 第二版 iPhone/WKWebView 异常 VisualViewport 防护已推送 
 - `agent-browser` 异常注入：`height=0/offsetTop=420` 时根层回退为 506px，头部保持 0–82px、底栏 424–506px；`offsetTop=0/pageTop=84` 时根层 top=84；失焦且残留 24px 时恢复 top=0。
 - 第二版正常路径回归：874→520→874 时根层高度、头尾位置、最新消息跟随和 `scrollY=0` 正常；历史 `scrollTop=140` 在高度变化后保持不变。
 - 第二版键盘防护、六图相册与并行信纸工作区组合的 `npm run build`：通过，Vite 2.9.18，439 modules transformed；仅保留既有 Zepto 警告。
+- `agent-browser` 402×874 信纸动态验收：第 20 字与第 45 字时第一行 18 个字的 x/y/宽度最大变化均为 0；实际含停顿标记的长段落分行为 18/20/20/20/20/17，停顿标记未计入字数；计算样式为左对齐、正常字距、`pre-wrap`。
 
 ## Known Problems
 
 - `index.html` 的传统 Zepto script 会触发 Vite “can't be bundled without type=module” 警告，但构建和运行正常。
 - 自定义头像仍依赖当前浏览器 `localStorage` 容量；固定目录相册不受该容量限制。
 - 第二版已覆盖 WebKit 已知的零高度与延迟偏移数据，但真实 iPhone 微信键盘动画和合成层绘制仍需部署后真机复验。
+- 手机信纸固定字数已在 Chrome 402×874 模拟视口验证，真实 iPhone 字体回退和微信内置浏览器渲染仍需真机目视确认。
 - 首次处理大量 HEIC 并生成缩略图会比后续启动慢；本机首次新版预处理约 80 秒，生成缓存存在时会按版本化源文件指纹复用。
 - Cloudflare Pages 全球网络不保证中国大陆访问质量；如需稳定大陆访问，需要另行考虑境内部署、备案和 CDN。
 

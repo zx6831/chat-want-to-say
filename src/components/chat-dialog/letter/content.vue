@@ -91,6 +91,40 @@ export default {
         })
       })
     },
+    formatParagraphText (content) {
+      const isMobilePortrait = typeof window !== 'undefined' &&
+        window.matchMedia('(max-width: 600px) and (orientation: portrait)').matches
+      if (!isMobilePortrait) return content
+
+      const firstLineLength = 18
+      const otherLineLength = 20
+      const tokens = content.match(/\^\d+|[\s\S]/gu) || []
+      let visibleCharacters = 0
+      let currentLineLength = firstLineLength
+      let result = ''
+
+      tokens.forEach((token) => {
+        if (/^\^\d+$/.test(token)) {
+          result += token
+          return
+        }
+        if (token === '\n') {
+          result += token
+          visibleCharacters = 0
+          currentLineLength = otherLineLength
+          return
+        }
+        if (visibleCharacters >= currentLineLength) {
+          result += '\n'
+          visibleCharacters = 0
+          currentLineLength = otherLineLength
+        }
+        result += token
+        visibleCharacters += 1
+      })
+
+      return result
+    },
     initContent () {
       let paragraphChain = Promise.resolve()
       // 标题打字
@@ -129,7 +163,7 @@ export default {
               this.contents.push(textContent)
               this.$nextTick(() => {
                 textContent.dom = this.$refs[textContent.ref][0]
-                this.append(textContent.dom, paragraph)
+                this.append(textContent.dom, this.formatParagraphText(paragraph))
                   .then(() => {
                     resolve()
                   })
@@ -288,7 +322,7 @@ export default {
   letter-spacing: .055em;
   text-align: justify;
   text-indent: 2em;
-  text-wrap: pretty;
+  text-wrap: wrap;
 }
 
 .letter-image-wrapper {
@@ -415,6 +449,18 @@ export default {
   }
   .letter-lamb { width: 82%; max-height: 132px; }
   .letter-header { padding-bottom: 9px; }
+  .letter-detail { container-type: inline-size; }
+  .letter-detail p {
+    inline-size: 20em;
+    max-inline-size: 100%;
+    font-size: min(1rem, 5cqi) !important;
+    letter-spacing: 0;
+    text-align: left;
+    text-align-last: left;
+    white-space: pre-wrap;
+    word-break: normal;
+    overflow-wrap: normal;
+  }
   .letter-signature { min-height: 38px; }
 }
 

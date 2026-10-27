@@ -47,6 +47,22 @@ Validation: 在目标设备完整走一遍答题、图片、信件打开与关�
 
 ## Completed
 
+### [x] 固定手机信纸每行字数并改为左对齐
+
+Status: completed
+
+Scope: 手机竖屏信纸正文分行、Typed.js 停顿标记计数和 CSS 文本对齐。
+
+Acceptance criteria:
+
+- 手机竖屏正文每行占 20 个字符单元；首行两格缩进后显示 18 字。
+- `^280` 等 Typed.js 停顿标记不计入字数。
+- 正文靠左对齐，不再使用两端对齐或智能平衡换行。
+- 后续字符出现时，已经完成的上一行不改变字距、坐标或断行。
+- 桌面信纸排版和逐段 Typed.js 流程保持不变，生产构建通过。
+
+Validation: `npm run build` 通过，439 modules transformed；`agent-browser` 在 402×874 下对比第 20/45 字，第一行字符坐标与宽度变化均为 0；实际长段落分行为 18/20/20/20/20/17。
+
 ### [x] 防止异常 VisualViewport 数据压垮聊天根层
 
 Status: completed

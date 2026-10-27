@@ -231,3 +231,15 @@ Evidence: 调整后计算层级为全局光效 z=0、`#app` z=1、相册内容 z
 Correct approach: 为 `#app` 建立高于全局装饰的层级；在相册内部使用隔离 stacking context，并让图片自身无透明度、滤镜或混合模式。
 
 Related files/tests: `src/components/chat-dialog/css/_global.scss`、`src/components/chat-dialog/AlbumSpace.vue`；`agent-browser` 层级计算和相册底部截图。
+
+### 逐字显示的正文不能使用两端对齐或智能平衡换行
+
+Conclusion: `text-align: justify` 会在每增加一个字符时重新分配当前行字距，`text-wrap: pretty` 还可能重新平衡前面的断行；两者都会让 Typed.js 已显示的上一行持续变化。
+
+Scope: 手机竖屏信纸的逐字正文和其他流式打字文本。
+
+Evidence: 改为硬换行、左对齐和普通换行后，从第 20 字继续显示到第 45 字，第一行 18 个可见字符的 x、y 和宽度最大变化均为 0；实际长段落稳定形成 18/20/20/20/20/17 字行。
+
+Correct approach: 格式化时忽略 `^数字` 停顿标记，首行按“两格缩进 + 18 字”、后续按 20 字插入换行；CSS 使用 `white-space: pre-wrap`、`text-align: left`、正常字距和与 20em 对应的响应式字号。
+
+Related files/tests: `src/components/chat-dialog/letter/content.vue`；`agent-browser` 第 20/45 字坐标对比与实际 `letter.json` 长段落计数。
