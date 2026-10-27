@@ -1,5 +1,5 @@
 <template>
-  <div id="mobile">
+  <div id="mobile" ref="chatRoot">
     <div class="ambient-glow ambient-glow--violet" aria-hidden="true"></div>
     <div class="ambient-glow ambient-glow--rose" aria-hidden="true"></div>
     <div class="chat-view-shell" v-show="activeView === 'chat'" :aria-hidden="activeView !== 'chat'">
@@ -27,7 +27,7 @@
         <span class="floating-speck floating-speck--two"></span>
         <span class="floating-speck floating-speck--three"></span>
       </div>
-      <div id="mobile-body-content">
+      <div id="mobile-body-content" ref="chatContent">
         <div id="mock-msg-row"
              class="msg-row">
           <div id="mock-msg"
@@ -195,9 +195,11 @@ export default {
   },
   mounted () {
     document.addEventListener('keydown', this.handleGlobalKeydown)
+    this.setupViewportTracking()
   },
   beforeUnmount () {
     document.removeEventListener('keydown', this.handleGlobalKeydown)
+    this.teardownViewportTracking()
   },
   methods: {
     openAlbum () {
@@ -241,6 +243,147 @@ export default {
       } else if (this.activeView === 'album') {
         this.closeAlbum()
       }
+    },
+
+    setupViewportTracking () {
+      this.$nextTick(() => {
+        const viewport = window.visualViewport
+        const input = this.$refs.userMsgInputRef
+        this._visualViewport = viewport
+        this._layoutViewportHeight = Math.max(
+          window.innerHeight || 0,
+          document.documentElement.clientHeight || 0,
+          viewport ? viewport.height : 0
+        )
+        this._handleViewportChange = () => this.queueViewportSync()
+        this._handleRootScroll = () => {
+          let corrected = false
+          if (window.scrollX || window.scrollY || document.documentElement.scrollTop || document.body.scrollTop) {
+            window.scrollTo(0, 0)
+            document.documentElement.scrollTop = 0
+            document.body.scrollTop = 0
+            corrected = true
+          }
+          if (corrected) this.queueViewportSync()
+        }
+        this._handleInputViewportChange = () => {
+          this.captureChatResizeAnchor()
+          this.queueViewportSync()
+          this.scheduleViewportStabilization()
+        }
+
+        window.addEventListener('resize', this._handleViewportChange, { passive: true })
+        window.addEventListener('orientationchange', this._handleViewportChange, { passive: true })
+        window.addEventListener('scroll', this._handleRootScroll, { passive: true })
+        if (viewport) {
+          viewport.addEventListener('resize', this._handleViewportChange, { passive: true })
+          viewport.addEventListener('scroll', this._handleViewportChange, { passive: true })
+        }
+        if (input) {
+          input.addEventListener('focus', this._handleInputViewportChange)
+          input.addEventListener('blur', this._handleInputViewportChange)
+        }
+        if (typeof ResizeObserver !== 'undefined' && this.$refs.chatContent) {
+          this._chatResizeObserver = new ResizeObserver(() => this.handleChatResize())
+          this._chatResizeObserver.observe(this.$refs.chatContent)
+        }
+        this.syncChatViewport()
+      })
+    },
+
+    teardownViewportTracking () {
+      const viewport = this._visualViewport
+      const input = this.$refs.userMsgInputRef
+      window.removeEventListener('resize', this._handleViewportChange)
+      window.removeEventListener('orientationchange', this._handleViewportChange)
+      window.removeEventListener('scroll', this._handleRootScroll)
+      if (viewport) {
+        viewport.removeEventListener('resize', this._handleViewportChange)
+        viewport.removeEventListener('scroll', this._handleViewportChange)
+      }
+      if (input) {
+        input.removeEventListener('focus', this._handleInputViewportChange)
+        input.removeEventListener('blur', this._handleInputViewportChange)
+      }
+      if (this._chatResizeObserver) this._chatResizeObserver.disconnect()
+      if (this._viewportFrame) cancelAnimationFrame(this._viewportFrame)
+      this.clearViewportTimers()
+    },
+
+    queueViewportSync () {
+      if (this._viewportFrame) cancelAnimationFrame(this._viewportFrame)
+      this._viewportFrame = requestAnimationFrame(() => {
+        this._viewportFrame = 0
+        this.syncChatViewport()
+      })
+    },
+
+    syncChatViewport () {
+      const root = this.$refs.chatRoot
+      if (!root) return
+      if (!window.matchMedia('(max-width: 480px)').matches) {
+        root.style.removeProperty('--chat-viewport-top')
+        root.style.removeProperty('--chat-viewport-height')
+        root.classList.remove('is-keyboard-open')
+        return
+      }
+
+      const viewport = window.visualViewport
+      const inputFocused = document.activeElement === this.$refs.userMsgInputRef
+      const visualHeight = Math.max(1, Math.round(viewport ? viewport.height : window.innerHeight))
+      const viewportTop = Math.max(0, Math.round(viewport ? viewport.offsetTop : 0))
+      if (!inputFocused) {
+        this._layoutViewportHeight = Math.max(
+          window.innerHeight || 0,
+          document.documentElement.clientHeight || 0,
+          visualHeight
+        )
+      }
+      const keyboardOpen = inputFocused && (
+        visualHeight < (this._layoutViewportHeight || visualHeight) - 80 || viewportTop > 0
+      )
+
+      this.captureChatResizeAnchor()
+      root.style.setProperty('--chat-viewport-height', `${visualHeight}px`)
+      root.style.setProperty('--chat-viewport-top', `${keyboardOpen ? viewportTop : 0}px`)
+      root.classList.toggle('is-keyboard-open', keyboardOpen)
+      if (!keyboardOpen) this._handleRootScroll()
+    },
+
+    scheduleViewportStabilization () {
+      this.clearViewportTimers()
+      this._viewportTimers = [60, 160, 320, 520, 800].map(delayMs => setTimeout(() => {
+        this._handleRootScroll()
+        this.syncChatViewport()
+      }, delayMs))
+    },
+
+    clearViewportTimers () {
+      ;(this._viewportTimers || []).forEach(timer => clearTimeout(timer))
+      this._viewportTimers = []
+    },
+
+    captureChatResizeAnchor () {
+      const chatbox = this.$refs.chatContent
+      if (!chatbox) return
+      const distanceFromBottom = chatbox.scrollHeight - chatbox.clientHeight - chatbox.scrollTop
+      this._followLatestOnResize = document.activeElement === this.$refs.userMsgInputRef || distanceFromBottom <= 72
+      this._historyScrollTop = chatbox.scrollTop
+    },
+
+    handleChatResize () {
+      const chatbox = this.$refs.chatContent
+      if (!chatbox || this._followLatestOnResize == null) return
+      const shouldFollowLatest = this._followLatestOnResize
+      const historyScrollTop = this._historyScrollTop
+      requestAnimationFrame(() => {
+        if (shouldFollowLatest) {
+          chatbox.scrollTop = chatbox.scrollHeight
+        } else {
+          chatbox.scrollTop = Math.min(historyScrollTop, Math.max(0, chatbox.scrollHeight - chatbox.clientHeight))
+        }
+        this._followLatestOnResize = null
+      })
     },
 
     buildMsgChain (messages) {
@@ -366,19 +509,18 @@ export default {
     },
 
     setUserInputFoucus () {
-      const iosSpecialProcess = () => {
-        try {
-          const isiOS = !!navigator.userAgent.match(/\(i[^;]+;( U;)? CPU.+Mac OS X/);
-          if (isiOS) {
-            this.$refs['userMsgInputRef'].scrollIntoView(true);
-          }
-        } catch (ignore) {
-        }
-      }
       setTimeout(() => {
         this.$nextTick(() => {
-          iosSpecialProcess();
-          this.$refs['userMsgInputRef'].focus();
+          const input = this.$refs.userMsgInputRef
+          if (!input) return
+          this.captureChatResizeAnchor()
+          try {
+            input.focus({ preventScroll: true })
+          } catch (ignore) {
+            input.focus()
+          }
+          this.queueViewportSync()
+          this.scheduleViewportStabilization()
         });
       }, 1000);
     },
