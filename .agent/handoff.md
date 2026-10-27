@@ -2,7 +2,7 @@
 
 Created: 2026-10-27
 Branch: `main`
-Working tree: dirty；第二版键盘修复和状态文件待提交，另有用户并行的信纸自动换行改动
+Working tree: dirty；仅保留用户并行的 `letter/content.vue` 信纸自动换行改动
 
 ## Session Goal
 
@@ -20,18 +20,10 @@ Working tree: dirty；第二版键盘修复和状态文件待提交，另有用�
 
 ## Current Stopping Point
 
-第二版键盘代码、回归脚本、生产构建和实际组件异常注入均已完成；待提交并推送后，需要用户在真实 iPhone 微信复验。
+第二版键盘代码、回归脚本、生产构建、实际组件异常注入和 main 推送均已完成；提交为 `85e4a82`，需要用户在真实 iPhone 微信复验。
 
 ## Uncommitted Changes
 
-- `package.json`
-- `scripts/check-mobile-viewport.cjs`
-- `src/components/chat-dialog/viewport-utils.mjs`
-- `src/components/chat-dialog/index.vue`
-- `.agent/current_state.md`
-- `.agent/lessons.md`
-- `.agent/TODO_list.md`
-- `.agent/handoff.md`
 - `src/components/chat-dialog/letter/content.vue`：用户并行的手机端自动换行与排版改动，不属于本轮，不得覆盖或混入键盘提交。
 
 ## Validation Results
@@ -42,6 +34,7 @@ Working tree: dirty；第二版键盘修复和状态文件待提交，另有用�
 - 正常路径：874→520→874 时根区域、头尾、输入栏和最新消息跟随正常，`scrollY=0`。
 - 历史位置：视口变化前后 `scrollTop` 均为 140。
 - `npm run build`：当前组合工作区通过，Vite 2.9.18，439 modules transformed；仅既有 Zepto 非 module 警告。
+- `git push origin main`：成功；本地与远端均指向键盘修复提交 `85e4a82`。
 
 ## Failing Tests or Known Errors
 
@@ -51,9 +44,9 @@ Working tree: dirty；第二版键盘修复和状态文件待提交，另有用�
 
 ## Recommended Next Steps
 
-1. 只暂存键盘修复、回归脚本和状态文件，保留未暂存的 `letter/content.vue`。
-2. 推送 `main` 触发 Cloudflare Pages 构建。
-3. 在真实 iPhone 微信测试首次唤起、收起和再次唤起键盘；如仍错位，读取根节点三个 `data-viewport-*` 值继续定位。
+1. 确认 Cloudflare Pages 已部署包含 `85e4a82` 的版本。
+2. 在真实 iPhone 微信测试首次唤起、收起和再次唤起键盘；如仍错位，读取根节点三个 `data-viewport-*` 值继续定位。
+3. 信纸并行改动继续单独处理和提交。
 
 ## Important Decisions
 

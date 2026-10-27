@@ -2,11 +2,11 @@
 
 Last updated: 2026-10-27
 Current branch: `main`
-Current phase: 移动端背景与相册已推送；正在针对真实 iPhone/WKWebView 的异常 VisualViewport 数据加固键盘布局
+Current phase: 第二版 iPhone/WKWebView 异常 VisualViewport 防护已推送 main，等待真实 iPhone 微信复验
 
 ## Current Objective
 
-部署异常 VisualViewport 防护后，在真实 iPhone 微信内置浏览器复验键盘动画；保留本地并行的信纸自动换行改动。
+等待 Cloudflare 部署 `85e4a82` 后，在真实 iPhone 微信内置浏览器复验键盘动画；保留本地并行的信纸自动换行改动。
 
 ## Completed
 
@@ -38,7 +38,7 @@ Current phase: 移动端背景与相册已推送；正在针对真实 iPhone/WKW
 ## In Progress
 
 - `letter/content.vue` 存在用户并行的手机端按字数换行与段落排版调整；已与键盘修复组合构建通过，但不会包含在键盘提交中，需继续保留。
-- 第二版键盘修复已通过自动化异常值注入，仍待真实 iPhone 微信复验。
+- 第二版键盘修复提交 `85e4a82` 已推送 `origin/main` 并通过自动化异常值注入，仍待真实 iPhone 微信复验。
 
 ## Architecture and Key Decisions
 
