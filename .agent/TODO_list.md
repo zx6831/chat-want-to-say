@@ -6,6 +6,24 @@
 
 ## P1 — Next
 
+### [ ] 推送并验证相册文件时间持久化修复
+
+Status: ready
+
+Depends on: 本地提交 `92a8000`
+
+Blocked by: 需要推送 `origin/main` 并等待 Cloudflare Pages 完成新部署
+
+Scope: 推送代码、确认生产 manifest 和目标照片页面日期。
+
+Acceptance criteria:
+
+- 生产 manifest 中 `659d5e21bedca5306220a40952cea072.JPG` 的 `takenAt/modifiedAt` 为 `2026-03-08T13:07:15.000Z`。
+- 生产相册中该照片位于按时间升序后的第 82 张附近，不再位于 10 月 27 日照片区域。
+- 卡片显示“2026年3月8日”，预览显示“2026年3月8日 21:07”。
+
+Validation: 对生产 `album-generated/manifest.json` 使用唯一查询参数无缓存读取；在真实页面检查卡片与预览。
+
 ### [ ] 在真实 iPhone 微信复验参考工程键盘状态机
 
 Status: blocked
@@ -46,6 +64,21 @@ Acceptance criteria:
 Validation: 在目标设备完整走一遍答题、图片、信件打开与关闭流程。
 
 ## Completed
+
+### [x] 持久化相册原始文件时间，避免云端部署时间污染排序
+
+Status: completed
+
+Scope: 本地时间捕获脚本、受跟踪时间索引、预处理器、目标照片回归和相册维护说明。
+
+Acceptance criteria:
+
+- 云端构建不再依赖 Git 检出后的 mtime/birthtime。
+- 新增或替换照片缺少索引时构建明确失败，不静默使用部署时间。
+- 截图中的 `659d5e21bedca5306220a40952cea072.JPG` 使用 2026 年 3 月 8 日修改时间排序。
+- 生产构建、自动测试和本地页面显示均通过。
+
+Validation: `npm run album:capture-dates`、`npm run test:album-order`、`npm run album:prepare`、`npm run build` 和 `git diff --check` 均通过；开发与 dist manifest 中目标照片为第 82 张且 `takenAt=2026-03-08T13:07:15.000Z`；本地生产预览卡片和预览时间正确。
 
 ### [x] 迁移参考工程的 iOS 键盘会话状态机
 

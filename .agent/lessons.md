@@ -150,15 +150,15 @@ Related files/tests: `scripts/prepare-album.cjs::detectImageFormat`；相册生�
 
 ### 相册时间排序必须在生成端和展示端使用同一规则
 
-Conclusion: 相册应优先使用 EXIF `DateTimeOriginal`，其次 `CreateDate`；没有拍摄时间时先使用文件修改时间，修改时间无效时才使用文件创建时间。时间从早到晚，完全相同时以修改时间、创建时间和文件名稳定排序。
+Conclusion: 相册应优先使用 EXIF `DateTimeOriginal`，其次 `CreateDate`；没有拍摄时间时先使用文件修改时间，修改时间无效时才使用文件创建时间。Git 不保存源文件 mtime/birthtime，云端检出会把它们重置为部署时间，因此文件时间必须先在本机持久化为受跟踪数据。时间从早到晚，完全相同时以修改时间、创建时间和文件名稳定排序。
 
 Scope: 相册清单生成和前端渲染。
 
-Evidence: 修复前的清单断言稳定检出 87/87 个无拍摄时间条目错误使用创建时间；修复后 135 项 manifest 中 48 张使用拍摄时间、87 张使用修改时间、0 张使用创建时间，优先级和单调性测试通过，前端首批 18 个 DOM 项与 manifest 逐项一致。
+Evidence: 第一轮修复前的清单断言稳定检出 87/87 个无拍摄时间条目错误使用创建时间；第一轮修复后本地清单正确，但生产无缓存 manifest 仍把 `659d5e21bedca5306220a40952cea072.JPG` 写成部署时间 2026-10-27，而本机修改时间为 2026-03-08。加入受跟踪时间索引后，本地生产预览将其排在第 82 张并显示 2026-03-08 21:07。
 
-Correct approach: 生成端分别写入 `capturedAt`、`modifiedAt`、`createdAt` 和 `dateSource`，用统一选择函数生成有效 `takenAt`；前端按相同优先级防御性排序，不使用文件名推断拍摄时间。保留 `npm run test:album-order` 覆盖三种回退分支和实际清单。
+Correct approach: 新增/替换/删除照片后先在保存原始文件时间的本机运行 `npm run album:capture-dates`，并把照片与 `src/assets/album-file-dates.json` 一起提交。生成端分别写入 `capturedAt`、`modifiedAt`、`createdAt` 和 `dateSource`，用统一选择函数生成有效 `takenAt`；前端按相同优先级防御性排序。构建必须在索引缺项或文件大小不一致时失败，不能静默回退到云端检出时间。
 
-Related files/tests: `scripts/prepare-album.cjs::selectPhotoDate/comparePhotos`、`scripts/check-album-order.cjs`、`AlbumSpace.vue::loadAlbum`；`npm run test:album-order`、`agent-browser` DOM 顺序检查。
+Related files/tests: `scripts/capture-album-file-dates.cjs`、`src/assets/album-file-dates.json`、`scripts/prepare-album.cjs::selectPhotoDate/readSourceFileDates`、`scripts/check-album-order.cjs`、`AlbumSpace.vue::loadAlbum`；`npm run test:album-order`、本地生产预览 DOM 顺序检查。
 
 ### 图片原生懒加载不能替代缩略图和 DOM 分批挂载
 

@@ -2,11 +2,11 @@
 
 Last updated: 2026-10-27
 Current branch: `main`
-Current phase: 第三版 iPhone/WKWebView 键盘视口修复已完成验证并推送 `main`；等待真实 iPhone 微信复验
+Current phase: 相册云端文件时间持久化修复已在本地提交 `92a8000`、待推送部署；第三版 iPhone/WKWebView 键盘视口修复已推送 `main`
 
 ## Current Objective
 
-将参考工程 `C:\Users\zx\Desktop\fuyue-chat-source-20261023` 的键盘会话状态机迁移到聊天页，解决微信 WebView 异常偏移把整套 UI 推出可视区的问题；等待部署后真实 iPhone 微信复验。
+推送并部署相册文件时间持久化修复，确认生产站点按“拍摄时间 → 修改时间 → 创建时间”排序；同时等待真实 iPhone 微信复验第三版键盘视口修复。
 
 ## Completed
 
@@ -18,6 +18,7 @@ Current phase: 第三版 iPhone/WKWebView 键盘视口修复已完成验证并�
 - 顶部中间胶囊只显示当前人名，点击可进入标题为“我们俩”的相册；标题下方灰色说明已移除。
 - 相册预处理器会扫描 `src/assets/album/`，识别 JPEG、PNG、GIF、WebP、AVIF、HEIC/HEIF；HEIC/HEIF 在启动或构建前转为 JPEG。
 - 相册优先读取 EXIF `DateTimeOriginal`，其次读取 `CreateDate`；均不存在时使用文件修改时间，修改时间也不存在时才使用文件创建时间。所有照片按选中的有效时间升序显示，并以修改时间、创建时间、文件名稳定打破并列。
+- 相册原始修改/创建时间已持久化到受 Git 跟踪的 `src/assets/album-file-dates.json`；云端构建不再读取被 Git 检出重置的文件系统时间。
 - 文件内容会通过魔数识别，扩展名与真实内容不一致的图片也能按实际格式处理。
 - 当前相册共 135 张：67 张 HEIC 转换、48 张使用拍摄时间、87 张使用文件修改时间、0 张退回文件创建时间。MOV/MP4 不进入图片相册。
 - 相册列表使用构建期生成的 720px WebP 缩略图，首批只渲染 18 张；滚动接近底部时由 `IntersectionObserver` 每批追加 18 张，单图预览仍读取完整兼容图。
@@ -40,13 +41,14 @@ Current phase: 第三版 iPhone/WKWebView 键盘视口修复已完成验证并�
 ## In Progress
 
 - 第三版键盘修复已通过纯函数回归、实际 Vue 组件异常指标注入和生产构建，并已推送；等待真实 iPhone 微信复验。
-- 本次排查期间并行出现一组未提交的相册源文件时间持久化改动（`package.json`、`scripts/prepare-album.cjs`、`scripts/check-album-order.cjs`、`scripts/capture-album-file-dates.cjs`、`src/assets/album-file-dates.json`、`src/assets/album/README.md`）；它们未纳入键盘提交，当前相册测试与构建通过。
+- 相册时间持久化代码已在本地提交 `92a8000`；尚未推送 `origin/main`，生产站点仍在使用把检出时间当修改时间的旧构建。
 
 ## Architecture and Key Decisions
 
 - `ChatDialog` 保持消息状态机所有权，仅管理当前视图、头像状态和设置面板开关。
 - `AvatarSettings.vue` 管理双方头像选择、裁切、保存和恢复默认。
-- `scripts/prepare-album.cjs` 读取源图、提取拍摄/修改/创建时间、转换 HEIC，同时用 Sharp 为每张照片生成最长边 720px、质量 72 的 WebP 缩略图，并生成按优先级时间排序的 `public/album-generated/manifest.json`。
+- `scripts/capture-album-file-dates.cjs` 在本机读取 135 张源图的原始修改/创建时间并写入受跟踪的 `src/assets/album-file-dates.json`；新增或替换照片后必须运行 `npm run album:capture-dates`。
+- `scripts/prepare-album.cjs` 读取源图、受跟踪的文件时间索引和拍摄元数据、转换 HEIC，同时用 Sharp 为每张照片生成最长边 720px、质量 72 的 WebP 缩略图，并生成按优先级时间排序的 `public/album-generated/manifest.json`；索引缺失或文件大小不一致时构建直接失败。
 - `AlbumSpace.vue` 读取生成清单，防御性再次按拍摄时间、修改时间、创建时间和文件名排序；网格消费缩略图并分批挂载 DOM，预览消费完整兼容图。
 - `AlbumSpace.vue` 将可见照片每 6 张切为一组，用 3 列 × 4 行网格安排 2 张跨 2 列/2 行的大图与 4 张单格小图；组索引决定左右镜像，尾组 1–3 张只保留 2 行。
 - `body::before/::after` 是纯背景光效，层级为 0；`#app` 层级为 1，避免全局雾光在照片上方合成。
@@ -56,13 +58,18 @@ Current phase: 第三版 iPhone/WKWebView 键盘视口修复已完成验证并�
 - 存储键：`chat-want-to-say:avatars:v1`；相册不再使用浏览器存储。
 - 默认头像由 `DEFAULT_AVATARS` 提供；本地自定义值优先，空值或无存储时回退到项目默认图片。
 - 相册目录支持 `.jpg`、`.jpeg`、`.png`、`.webp`、`.gif`、`.avif`、`.heic`、`.heif`，不递归读取子目录。
-- `predev`、`prebuild`、`prepreview` 自动执行相册预处理；生成目录被 Git 忽略，并使用处理器版本、源文件名、大小和修改时间组成的指纹增量复用完整图与缩略图。
+- `predev`、`prebuild`、`prepreview` 自动执行相册预处理；生成目录被 Git 忽略，并使用处理器版本、源文件名、大小和受跟踪的文件时间组成的指纹增量复用完整图与缩略图。
 - Git 不再跟踪 `node_modules/`；`.gitignore` 同时排除 `node_modules/`、`dist/`、`public/album-generated/` 和仅供设计参考的 `refui/`。
 - 桌面聊天窗宽 430px；`<=480px` 时铺满视口。玻璃材质继续使用低占比雾白、18px blur 和轻量高光。
 - `index.vue` 通过 `viewport-utils.mjs` 维护展开高度、键盘会话、宽度基线和缩放状态，再用 CSS 变量 `--chat-viewport-height`、`--chat-viewport-top` 驱动固定聊天根容器；根节点的 `data-viewport-source/height/top/obscured` 用于真机诊断。
 
 ## Validation Status
 
+- 生产无缓存诊断：`missmia.206831.xyz` 当前 manifest 将 `659d5e21bedca5306220a40952cea072.JPG` 的修改时间错误写为部署时间 `2026-10-27T07:41:54.522Z`；`capturedAt=null`，已排除 EXIF、前端格式化和缓存因素。
+- 云端检出回归：修复前测试稳定失败为部署时间覆盖三月修改时间；修复后 `selectPhotoDate` 使用受跟踪时间覆盖模拟的云端 mtime。
+- 目标照片回归：时间索引、开发 manifest 和 `dist` manifest 均为 `2026-03-08T13:07:15.000Z`；在完整升序清单中为第 82 张。
+- 本地生产预览：目标照片卡片显示“2026年3月8日”，预览显示“2026年3月8日 21:07”，运行时错误为 0。
+- `npm run album:capture-dates`：通过；捕获 135 张照片的原始修改/创建时间。
 - `npm run album:prepare`：通过；生成 135 张照片，67 张 HEIC 转换，48 张拍摄时间、87 张修改时间、0 张创建时间回退。
 - `npm run test:album-order`：通过；覆盖拍摄、修改、创建三段优先级，并检查实际 manifest 中非拍摄条目没有跳过修改时间及清单整体单调性。
 - 相册页面级顺序检查：通过；4174 本地页面首批 18 个 DOM 照片与 manifest 逐项一致，页面运行时错误为 0。
@@ -93,6 +100,7 @@ Current phase: 第三版 iPhone/WKWebView 键盘视口修复已完成验证并�
 
 ## Known Problems
 
+- 生产站点尚未包含本地提交 `92a8000`，目标照片仍显示 2026 年 10 月 27 日；必须推送并完成 Cloudflare Pages 新部署后才能在线生效。
 - `index.html` 的传统 Zepto script 会触发 Vite “can't be bundled without type=module” 警告，但构建和运行正常。
 - 自定义头像仍依赖当前浏览器 `localStorage` 容量；固定目录相册不受该容量限制。
 - 第三版已覆盖零高度、超大偏移、失焦过渡、页面滚动和 pinch zoom，但真实 iPhone 微信键盘动画及 Dynamic Island/浏览器工具栏组合仍需部署后真机复验。
@@ -112,6 +120,8 @@ Current phase: 第三版 iPhone/WKWebView 键盘视口修复已完成验证并�
 - `public/letter/lamb-watercolor.png`
 - `scripts/prepare-album.cjs`
 - `scripts/check-album-order.cjs`
+- `scripts/capture-album-file-dates.cjs`
+- `src/assets/album-file-dates.json`
 - `package.json`
 - `yarn.lock`
 - `src/components/chat-dialog/AvatarSettings.vue`
