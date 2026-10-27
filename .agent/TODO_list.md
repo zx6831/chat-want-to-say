@@ -6,7 +6,23 @@
 
 ## P1 — Next
 
-无。
+### [ ] 在真实 iPhone 微信复验第二版键盘防护
+
+Status: blocked
+
+Depends on: Cloudflare Pages 部署包含异常 VisualViewport 防护的最新 main
+
+Blocked by: 需要用户在真实 iPhone 微信内置浏览器触发软键盘
+
+Scope: 首次唤起、收起、再次唤起、连续输入、页面工具栏展开/收起和 Dynamic Island 状态变化。
+
+Acceptance criteria:
+
+- 键盘打开后头部、消息和输入栏均保持可见，页面不再只剩背景。
+- 输入栏贴近键盘上沿且左右不跳动。
+- 收起后聊天根层恢复完整高度和 top=0。
+
+Validation: 真机截图或录屏；必要时读取根节点 `data-viewport-source`、`data-viewport-height`、`data-viewport-top`。
 
 ## P2 — Later
 
@@ -31,6 +47,21 @@ Validation: 在目标设备完整走一遍答题、图片、信件打开与关�
 
 ## Completed
 
+### [x] 防止异常 VisualViewport 数据压垮聊天根层
+
+Status: completed
+
+Scope: 视口指标校验、可信高度回退、pageTop 补偿、标准回归脚本和实际组件异常注入。
+
+Acceptance criteria:
+
+- `visualViewport.height=0` 时根层不会变成 1px。
+- `offsetTop` 延迟时可从 `pageTop - scrollY` 恢复有效顶部偏移。
+- 键盘失焦后残留 offset 不会继续移动根层。
+- 正常键盘高度路径和历史消息位置不回归。
+
+Validation: `npm run test:viewport` 通过；组件注入零高度后根层为 506px 且头尾可见；正常 874→520→874 和历史 `scrollTop=140` 回归通过；`npm run build` 通过。
+
 ### [x] 将相册改为六图左右交错并修复雾光覆盖
 
 Status: completed
@@ -47,7 +78,7 @@ Acceptance criteria:
 
 Validation: `npm run build` 和 `git diff --check` 通过；`agent-browser` 实测首组左大右小、第二组左右镜像，135 张/23 组/破图 0，尾组 3 张高 203px、底部间距 28px，图片层计算样式正常。
 
-### [x] 消除聊天分区背景接缝并稳定移动端键盘视口
+### [x] 消除聊天分区背景接缝并加入第一版移动端视口同步
 
 Status: completed
 
@@ -60,7 +91,7 @@ Acceptance criteria:
 - 最新消息随可用高度变化保持可见，阅读历史时不被强制滚到底部。
 - 生产构建通过并推送到 `main`。
 
-Validation: 402×874 截图顶部/底部边缘色差分别由 13.93/10.36 降至 2.47/2.55；模拟 874→520→874 键盘高度时根区域、输入栏和滚动状态均通过；历史 `scrollTop=140` 保持；`npm run build` 通过；提交 `4f179aa` 已推送 `origin/main`。
+Validation: 402×874 截图顶部/底部边缘色差分别由 13.93/10.36 降至 2.47/2.55；模拟 874→520→874 键盘高度时根区域、输入栏和滚动状态均通过；历史 `scrollTop=140` 保持；`npm run build` 通过。真实 iPhone 后续暴露 VisualViewport 零高度问题，已由第二版防护覆盖并另行等待真机复验。
 
 ### [x] 推送部署就绪版本到 GitHub main
 

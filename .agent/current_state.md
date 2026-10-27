@@ -2,11 +2,11 @@
 
 Last updated: 2026-10-27
 Current branch: `main`
-Current phase: 前端功能、相册性能、移动端统一背景和键盘视口修复已推送；六图交错相册已完成并验证、尚未提交
+Current phase: 移动端背景与相册已推送；正在针对真实 iPhone/WKWebView 的异常 VisualViewport 数据加固键盘布局
 
 ## Current Objective
 
-在真实 iPhone 微信内置浏览器验收键盘动画、安全区、相册底部图层与滚动手感；本地保留已验证的六图交错相册改动。
+部署异常 VisualViewport 防护后，在真实 iPhone 微信内置浏览器复验键盘动画；保留本地并行的信纸自动换行改动。
 
 ## Completed
 
@@ -32,10 +32,13 @@ Current phase: 前端功能、相册性能、移动端统一背景和键盘视�
 - 聊天页背景改为由 `#mobile` 根容器一次性绘制，头部、消息区和输入区透明叠放；上下背景不再因独立半透明层产生颜色分界。
 - 移动端聊天区域持续跟随 `visualViewport.height/offsetTop`；键盘开合期间纠正根页面异常滚动，输入栏保持固定横向边距。
 - 消息容器使用 `ResizeObserver` 响应可用高度变化：位于底部时跟随最新消息，阅读历史时保留原 `scrollTop`。
+- 移动视口解析器会拒绝 `visualViewport.height=0` 或异常小值，依次回退到可信 `innerHeight`、最后稳定高度或布局高度，防止聊天根层被压成 1px。
+- 顶部补偿同时参考 `offsetTop` 与 `pageTop - scrollY`；输入失焦时强制清零 WebKit 残留偏移。
 
 ## In Progress
 
-- `AlbumSpace.vue` 六图交错布局与 `_global.scss` 雾光层级调整已完成组合构建和浏览器验证，但尚未提交或推送。
+- `letter/content.vue` 存在用户并行的手机端按字数换行与段落排版调整；已与键盘修复组合构建通过，但不会包含在键盘提交中，需继续保留。
+- 第二版键盘修复已通过自动化异常值注入，仍待真实 iPhone 微信复验。
 
 ## Architecture and Key Decisions
 
@@ -53,7 +56,7 @@ Current phase: 前端功能、相册性能、移动端统一背景和键盘视�
 - `predev`、`prebuild`、`prepreview` 自动执行相册预处理；生成目录被 Git 忽略，并使用处理器版本、源文件名、大小和修改时间组成的指纹增量复用完整图与缩略图。
 - Git 不再跟踪 `node_modules/`；`.gitignore` 同时排除 `node_modules/`、`dist/`、`public/album-generated/` 和仅供设计参考的 `refui/`。
 - 桌面聊天窗宽 430px；`<=480px` 时铺满视口。玻璃材质继续使用低占比雾白、18px blur 和轻量高光。
-- `index.vue` 在移动视口通过 CSS 变量 `--chat-viewport-height`、`--chat-viewport-top` 驱动固定聊天根容器；焦点、window/visualViewport 的 resize/scroll 事件共同触发同步，收起键盘时清零残留顶部偏移。
+- `index.vue` 通过 `viewport-utils.mjs` 校验 VisualViewport，再用 CSS 变量 `--chat-viewport-height`、`--chat-viewport-top` 驱动固定聊天根容器；根节点的 `data-viewport-source/height/top` 用于真机诊断。
 
 ## Validation Status
 
@@ -78,12 +81,16 @@ Current phase: 前端功能、相册性能、移动端统一背景和键盘视�
 - 六图相册与移动端修复组合后的 `npm run build`：通过，Vite 2.9.18，438 modules transformed；`git diff --check` 通过，仅保留换行提示和既有 Zepto 警告。
 - `agent-browser` 390×844：首组大图 238.7×203、小图 115.3×97.5，左大右小；第二组同尺寸左右镜像；`scrollWidth=390`。
 - 相册滚动到底后共渲染 135 张、23 组、破图 0；尾组 3 张高度由 414px 收为 203px，底部间距 28px。照片计算样式为 `opacity: 1`、`filter: none`、`mix-blend-mode: normal`。
+- `npm run test:viewport`：通过；覆盖 VisualViewport 高度为 0、`offsetTop` 延迟而 `pageTop` 已更新，以及键盘收起后残留偏移三类 WebKit 场景。
+- `agent-browser` 异常注入：`height=0/offsetTop=420` 时根层回退为 506px，头部保持 0–82px、底栏 424–506px；`offsetTop=0/pageTop=84` 时根层 top=84；失焦且残留 24px 时恢复 top=0。
+- 第二版正常路径回归：874→520→874 时根层高度、头尾位置、最新消息跟随和 `scrollY=0` 正常；历史 `scrollTop=140` 在高度变化后保持不变。
+- 第二版键盘防护、六图相册与并行信纸工作区组合的 `npm run build`：通过，Vite 2.9.18，439 modules transformed；仅保留既有 Zepto 警告。
 
 ## Known Problems
 
 - `index.html` 的传统 Zepto script 会触发 Vite “can't be bundled without type=module” 警告，但构建和运行正常。
 - 自定义头像仍依赖当前浏览器 `localStorage` 容量；固定目录相册不受该容量限制。
-- 已完成桌面 Chrome 的 `visualViewport` 键盘高度模拟；真实 iPhone 微信键盘动画、安全区和延迟滚动仍需真机验收。
+- 第二版已覆盖 WebKit 已知的零高度与延迟偏移数据，但真实 iPhone 微信键盘动画和合成层绘制仍需部署后真机复验。
 - 首次处理大量 HEIC 并生成缩略图会比后续启动慢；本机首次新版预处理约 80 秒，生成缓存存在时会按版本化源文件指纹复用。
 - Cloudflare Pages 全球网络不保证中国大陆访问质量；如需稳定大陆访问，需要另行考虑境内部署、备案和 CDN。
 
@@ -110,6 +117,8 @@ Current phase: 前端功能、相册性能、移动端统一背景和键盘视�
 - `src/components/chat-dialog/css/_mobile.msg.scss`
 - `src/components/chat-dialog/css/_mobile.body.scss`
 - `src/components/chat-dialog/css/_global.scss`
+- `src/components/chat-dialog/viewport-utils.mjs`
+- `scripts/check-mobile-viewport.cjs`
 - `public/options/preview/chat.json`
 - `refui/fuyue-chat-source-20261023/fuyue-chat-source-20261023/apps/web/src/ui/view-transitions.css`
 - `refui/fuyue-chat-source-20261023/fuyue-chat-source-20261023/apps/web/src/ui/relationship-home.css`

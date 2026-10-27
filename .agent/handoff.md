@@ -2,69 +2,75 @@
 
 Created: 2026-10-27
 Branch: `main`
-Working tree: dirty；六图交错相册和项目状态文件尚未提交
+Working tree: dirty；第二版键盘修复和状态文件待提交，另有用户并行的信纸自动换行改动
 
 ## Session Goal
 
-把相册改为每 6 张一组的左右交错拼贴：奇数组左侧两张大图、右侧四张小图，偶数组反向；同时确保网页底部白雾光效不会覆盖相册图片。
+修复真实 iPhone/WKWebView 中软键盘打开后聊天界面全部消失的问题：防止异常 VisualViewport 高度和延迟顶部偏移把聊天根层压缩或移出可视区域。
 
 ## Work Completed
 
-- `AlbumSpace.vue` 新增 `visiblePhotoGroups`，把当前已挂载照片按 6 张切组。
-- 每组采用 3 列 × 4 行：大图占 2 列 × 2 行，小图占 1 列 × 1 行；奇偶组镜像交错。
-- 原有首批/每批 18 张的分批挂载保持不变，因此每批恰好增加 3 个六图组。
-- 不足 4 张的最后一组缩为 2 行；当前 135 张的最后 3 张从 414px 收为 203px。
-- 全局 `body::before/::after` 光效设为 z=0，`#app` 设为 z=1；相册画廊和图片建立隔离层级，图片明确无透明、滤镜和混合模式。
-- 并行完成的移动端统一背景和键盘视口修复已在提交 `4f179aa` 中，状态记录提交为 `6b66518`，两者均已在 `origin/main`；本轮相册改动基于其最新代码完成组合验证。
+- 新增 `viewport-utils.mjs`，在写入根容器前校验 VisualViewport 数据。
+- `visualViewport.height=0` 或异常小时不再变成 1px，改为使用可信 `innerHeight`、最后稳定高度或布局高度。
+- 顶部补偿采用 `max(offsetTop, pageTop - scrollY)`，覆盖 WKWebView 中 `offsetTop` 延迟的情况；失焦时清除残留偏移。
+- visualViewport 每次 resize/scroll 都触发稳定期复查，不再只依赖 focus/blur 的固定几次时序。
+- 根节点输出 `data-viewport-source/height/top`，便于后续真机诊断。
+- 新增 `npm run test:viewport`，覆盖零高度、延迟 offset 和键盘收起残留三类场景。
+- 原六图相册和图层修复已由提交 `cd00752` 进入 `main`。
 
 ## Current Stopping Point
 
-功能修改、生产构建、390×844 浏览器几何检查、全量滚动和底部截图均已完成。本轮相册代码尚未提交或推送。
+第二版键盘代码、回归脚本、生产构建和实际组件异常注入均已完成；待提交并推送后，需要用户在真实 iPhone 微信复验。
 
 ## Uncommitted Changes
 
-- `src/components/chat-dialog/AlbumSpace.vue`
-- `src/components/chat-dialog/css/_global.scss`
+- `package.json`
+- `scripts/check-mobile-viewport.cjs`
+- `src/components/chat-dialog/viewport-utils.mjs`
+- `src/components/chat-dialog/index.vue`
 - `.agent/current_state.md`
 - `.agent/lessons.md`
 - `.agent/TODO_list.md`
 - `.agent/handoff.md`
+- `src/components/chat-dialog/letter/content.vue`：用户并行的手机端自动换行与排版改动，不属于本轮，不得覆盖或混入键盘提交。
 
 ## Validation Results
 
-- `npm run build`：通过；Vite 2.9.18，438 modules transformed；只保留既有 Zepto 非 module 警告。
-- `git diff --check`：通过，仅显示 Git 的 LF/CRLF 工作区提示。
-- `agent-browser` 390×844：首组大图 238.7×203、小图 115.3×97.5，左大右小；第二组左右镜像；文档 `scrollWidth=390`。
-- 全量滚动：135 张、23 组、破图 0；尾组 3 张高度 203px，底部间距 28px。
-- 图层：全局雾光 z=0、`#app` z=1、相册内容 z=3、照片 z=2、图片 z=1；图片 `opacity=1`、`filter=none`、`mix-blend-mode=normal`。
+- 旧逻辑回归：`node scripts/check-mobile-viewport.cjs` 在 `height=0` 时失败，明确复现根层会缩为 1px。
+- `npm run test:viewport`：通过；零高度、延迟 offset 和收起残留场景全部通过。
+- 实际组件异常注入：`height=0/offsetTop=420` 时根层为 506px，头部 0–82px、底栏 424–506px；`offsetTop=0/pageTop=84` 时 top=84；失焦残留 24px 时 top=0。
+- 正常路径：874→520→874 时根区域、头尾、输入栏和最新消息跟随正常，`scrollY=0`。
+- 历史位置：视口变化前后 `scrollTop` 均为 140。
+- `npm run build`：当前组合工作区通过，Vite 2.9.18，439 modules transformed；仅既有 Zepto 非 module 警告。
 
 ## Failing Tests or Known Errors
 
-- 无失败测试。
 - `index.html` 仍提示 `js/zepto.min.js` 缺少 `type="module"`，不影响构建和运行。
-- 尚未在真实 iOS/Android 上验证浏览器工具栏、安全区和低端 GPU 合成表现。
+- 第二版仍需真实 iPhone 微信复验；WebKit 的布局与合成行为不能由桌面 Chrome 完全模拟。
+- 当前未提交的 `letter/content.vue` 已与第二版修复组合构建通过，但不属于键盘提交。
 
 ## Recommended Next Steps
 
-1. 在真实手机上打开相册，重点检查 Safari/微信内置浏览器底部工具栏附近的照片是否仍保持原色。
-2. 如视觉符合预期，单独提交本轮六图布局、层级修复和状态文件。
-3. 推送 `main` 后触发 Cloudflare Pages 构建。
+1. 只暂存键盘修复、回归脚本和状态文件，保留未暂存的 `letter/content.vue`。
+2. 推送 `main` 触发 Cloudflare Pages 构建。
+3. 在真实 iPhone 微信测试首次唤起、收起和再次唤起键盘；如仍错位，读取根节点三个 `data-viewport-*` 值继续定位。
 
 ## Important Decisions
 
-- 使用明确的六图组 DOM，而不是继续扩展全局 `nth-child(7n + …)` 规则。
-- 保持照片时间顺序：组内第 1/4 张为大图，第 2/3/5/6 张为小图；镜像组中顺序沿行推进。
-- 白雾仍作为背景氛围保留，但永远位于整个应用根节点下方。
+- 不能把 VisualViewport 的 0/异常小高度直接写入全屏根节点。
+- 只有 visual height 可信时才采用视觉顶部偏移；否则保持安全高度和 top=0，等待稳定期复查。
+- `pageTop - scrollY` 是 `offsetTop` 延迟时的补充信号，输入失焦后任何残留偏移都不应生效。
 
 ## Risks and Open Questions
 
-- 真机浏览器工具栏本身可能产生系统级半透明覆盖，这不受页面 z-index 控制；当前页面自身的雾光已确认在图片下方。
-- 真实 iPhone 微信的键盘动画时序可能与 Chrome 模拟不同，仍需真机验收。
+- iOS 26/WKWebView 仍有 position:fixed 和 VisualViewport 的公开 WebKit 缺陷；第二版以防御性回退避免界面消失，但最终位置仍需真机确认。
+- 用户并行信纸改动必须保留并单独验证。
 
 ## Start Here
 
 ```powershell
 git status --short --branch
-git diff -- src/components/chat-dialog/AlbumSpace.vue src/components/chat-dialog/css/_global.scss
+npm run test:viewport
 npm run build
+git diff -- src/components/chat-dialog/letter/content.vue
 ```

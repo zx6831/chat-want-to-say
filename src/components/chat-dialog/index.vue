@@ -122,6 +122,7 @@ import MessageDetail from './MessageDetail.vue'
 import AlbumSpace from './AlbumSpace.vue'
 import AvatarSettings from './AvatarSettings.vue'
 import { AVATAR_STORAGE_KEY, DEFAULT_AVATARS, readLocalJson } from './image-utils'
+import { resolveMobileViewport } from './viewport-utils.mjs'
 import Typed from 'typed.js'
 import './css/main.scss'
 const AUTHOR = {
@@ -255,7 +256,11 @@ export default {
           document.documentElement.clientHeight || 0,
           viewport ? viewport.height : 0
         )
-        this._handleViewportChange = () => this.queueViewportSync()
+        this._lastStableViewportHeight = this._layoutViewportHeight
+        this._handleViewportChange = () => {
+          this.queueViewportSync()
+          this.scheduleViewportStabilization()
+        }
         this._handleRootScroll = () => {
           let corrected = false
           if (window.scrollX || window.scrollY || document.documentElement.scrollTop || document.body.scrollTop) {
@@ -325,29 +330,43 @@ export default {
         root.style.removeProperty('--chat-viewport-top')
         root.style.removeProperty('--chat-viewport-height')
         root.classList.remove('is-keyboard-open')
+        delete root.dataset.viewportSource
+        delete root.dataset.viewportHeight
+        delete root.dataset.viewportTop
         return
       }
 
       const viewport = window.visualViewport
       const inputFocused = document.activeElement === this.$refs.userMsgInputRef
-      const visualHeight = Math.max(1, Math.round(viewport ? viewport.height : window.innerHeight))
-      const viewportTop = Math.max(0, Math.round(viewport ? viewport.offsetTop : 0))
       if (!inputFocused) {
         this._layoutViewportHeight = Math.max(
           window.innerHeight || 0,
           document.documentElement.clientHeight || 0,
-          visualHeight
+          viewport && viewport.height > 0 ? viewport.height : 0
         )
       }
-      const keyboardOpen = inputFocused && (
-        visualHeight < (this._layoutViewportHeight || visualHeight) - 80 || viewportTop > 0
-      )
+      const resolvedViewport = resolveMobileViewport({
+        visualHeight: viewport ? viewport.height : window.innerHeight,
+        innerHeight: window.innerHeight,
+        layoutHeight: this._layoutViewportHeight,
+        lastStableHeight: this._lastStableViewportHeight,
+        offsetTop: viewport ? viewport.offsetTop : 0,
+        pageTop: viewport ? viewport.pageTop : window.scrollY,
+        scrollY: window.scrollY,
+        inputFocused
+      })
+      if (resolvedViewport.visualHeightReliable) {
+        this._lastStableViewportHeight = resolvedViewport.height
+      }
 
       this.captureChatResizeAnchor()
-      root.style.setProperty('--chat-viewport-height', `${visualHeight}px`)
-      root.style.setProperty('--chat-viewport-top', `${keyboardOpen ? viewportTop : 0}px`)
-      root.classList.toggle('is-keyboard-open', keyboardOpen)
-      if (!keyboardOpen) this._handleRootScroll()
+      root.style.setProperty('--chat-viewport-height', `${resolvedViewport.height}px`)
+      root.style.setProperty('--chat-viewport-top', `${resolvedViewport.top}px`)
+      root.classList.toggle('is-keyboard-open', resolvedViewport.keyboardOpen)
+      root.dataset.viewportSource = resolvedViewport.source
+      root.dataset.viewportHeight = String(resolvedViewport.height)
+      root.dataset.viewportTop = String(resolvedViewport.top)
+      if (!resolvedViewport.keyboardOpen) this._handleRootScroll()
     },
 
     scheduleViewportStabilization () {
